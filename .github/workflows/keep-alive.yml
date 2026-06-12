@@ -1,0 +1,44 @@
+name: Keep Alive - Prevent Supabase & Vercel Pause
+
+on:
+  schedule:
+    # Executa toda segunda-feira às 09:00 UTC (06:00 BRT)
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Permite executar manualmente
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          echo "Fazendo ping no Supabase para evitar pausa..."
+          curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          echo ""
+          echo "Supabase ping concluído!"
+
+      - name: Ping Vercel
+        run: |
+          echo "Fazendo ping no Vercel para manter ativo..."
+          curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.VERCEL_URL }}"
+          echo ""
+          echo "Vercel ping concluído!"
+
+      - name: Keep Supabase Database Active
+        run: |
+          echo "Executando query simples no banco para manter ativo..."
+          curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/profiles?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          echo ""
+          echo "Database query concluída!"
+
+      - name: Log Success
+        run: |
+          echo "✅ Keep-alive executado com sucesso em $(date -u)"
+          echo "Próxima execução: próxima segunda-feira às 09:00 UTC"
