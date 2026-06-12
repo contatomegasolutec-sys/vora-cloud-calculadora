@@ -421,7 +421,7 @@
             };
 
             useEffect(() => {
-                if (!isMultipleMode || !sliderRef.current) return;
+                if (!sliderRef.current) return;
                 
                 const updateWidth = () => {
                     if (sliderRef.current) {
@@ -440,7 +440,7 @@
                     observer.disconnect();
                     clearInterval(timer);
                 };
-            }, [isMultipleMode, multiplePayments]);
+            }, [isMultipleMode, multiplePayments, data]);
 
             // Inicializar cliente do Supabase
             useEffect(() => {
@@ -1301,7 +1301,7 @@
                                     }}
                                     className="h-20 px-6 bg-white/10 hover:bg-white/20 text-white font-headline font-black rounded-[1.5rem] border border-white/10 flex items-center justify-center text-xs uppercase tracking-widest transition-all"
                                 >
-                                    Múltiplos
+                                    Multi-pagamentos
                                 </button>
                             </div>
                         ) : (
@@ -1528,29 +1528,30 @@
                         )}
                     </div>
 
-                    {/* Top Scrollbar for Multiple Mode */}
-                    {isMultipleMode && (
-                        <div 
-                            ref={topScrollRef} 
-                            onScroll={handleTopScroll} 
-                            className="w-full overflow-x-auto overflow-y-hidden mb-2 shrink-0 scrollbar-visible"
-                            style={{ height: '12px' }}
-                        >
-                            <div style={{ width: `${scrollWidth}px`, height: '1px' }} />
-                        </div>
-                    )}
+                    {/* Top Scrollbar */}
+                    <div 
+                        ref={topScrollRef} 
+                        onScroll={handleTopScroll} 
+                        className={`w-full overflow-x-auto overflow-y-hidden shrink-0 scrollbar-visible ${!isMultipleMode ? 'hidden lg:block' : ''}`}
+                        style={{ 
+                            height: scrollWidth > (sliderRef.current?.clientWidth || 0) ? '12px' : '0px', 
+                            marginBottom: scrollWidth > (sliderRef.current?.clientWidth || 0) ? '8px' : '0px' 
+                        }}
+                    >
+                        <div style={{ width: `${scrollWidth}px`, height: '1px' }} />
+                    </div>
 
                     {/* Cards Slider / Grid */}
                     <div 
                         ref={sliderRef}
-                        onMouseDown={isMultipleMode ? handleMouseDown : undefined}
-                        onMouseLeave={isMultipleMode ? handleMouseLeave : undefined}
-                        onMouseUp={isMultipleMode ? handleMouseUp : undefined}
-                        onMouseMove={isMultipleMode ? handleMouseMove : undefined}
-                        onScroll={isMultipleMode ? handleBottomScroll : undefined}
+                        onMouseDown={handleMouseDown}
+                        onMouseLeave={handleMouseLeave}
+                        onMouseUp={handleMouseUp}
+                        onMouseMove={handleMouseMove}
+                        onScroll={handleBottomScroll}
                         className={isMultipleMode 
                             ? `flex-1 flex flex-row flex-nowrap items-start justify-start gap-6 py-2 overflow-x-auto scrollbar-visible w-full pb-4 ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`
-                            : "flex-1 flex flex-col lg:flex-row lg:flex-wrap items-center lg:items-start lg:justify-start gap-6 py-2"
+                            : `flex-1 flex flex-col items-center gap-6 py-2 w-full lg:flex-row lg:flex-nowrap lg:items-start lg:justify-start lg:overflow-x-auto lg:scrollbar-visible lg:pb-4 ${isDragging ? 'lg:cursor-grabbing lg:select-none' : 'lg:cursor-grab'}`
                         }
                     >
                         {!isMultipleMode ? (
