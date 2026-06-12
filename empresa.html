@@ -1191,6 +1191,17 @@
 
             // Se o usuário não estiver logado, renderizar tela de login
             if (!user) {
+                const isPartner = tenant !== null;
+                const displayLogo = brandLogoImage ? (
+                    <img src={brandLogoImage} alt="Logo" className="w-full h-full object-cover" />
+                ) : isPartner ? (
+                    <span className="font-headline font-black text-white italic text-2xl uppercase">
+                        {brandLogoText || 'T'}
+                    </span>
+                ) : (
+                    <img src="icon-192.png" alt="Logo Vora" className="w-full h-full object-cover" />
+                );
+
                 return (
                     <div className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 min-h-screen bg-zinc-950 text-zinc-100">
                         <div className="w-full max-w-md bg-zinc-900 border border-white/5 rounded-[2.5rem] p-8 shadow-2xl space-y-6 relative overflow-hidden">
@@ -1198,12 +1209,17 @@
                             <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-700/5 rounded-full blur-3xl -z-10" />
                             
                             <div className="text-center space-y-2">
-                                <div className="mx-auto bg-[#004d1a] h-16 w-16 rounded-2xl flex items-center justify-center font-headline font-black text-white italic text-2xl shadow-xl overflow-hidden">
-                                    {brandLogoImage ? (
-                                        <img src={brandLogoImage} alt="Logo" className="w-full h-full object-cover" />
-                                    ) : (
-                                        brandLogoText || 'V'
-                                    )}
+                                <div className="text-center pb-2 border-b border-white/5 mb-4">
+                                    <span className="text-[10px] font-black tracking-widest text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full uppercase">
+                                        {isPartner ? 'Calculadora Corporativa' : 'Calculadora Oficial'}
+                                    </span>
+                                    <h3 className="font-headline font-black text-sm uppercase text-white mt-2 leading-tight">
+                                        👋 Olá! Seja bem-vindo à calculadora da {isPartner ? brandName : 'VORA CLOUD'}!
+                                    </h3>
+                                </div>
+
+                                <div className="mx-auto bg-[#004d1a] h-16 w-16 rounded-2xl flex items-center justify-center shadow-xl overflow-hidden">
+                                    {displayLogo}
                                 </div>
                                 <h2 className="font-headline font-black uppercase tracking-tight text-white text-xl md:text-2xl pt-2">{brandName || 'VORA CLOUD'}</h2>
                                 <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">{brandPhrase || 'Calculadora de Taxas Inteligentes'}</p>
