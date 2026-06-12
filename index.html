@@ -295,7 +295,11 @@
             // Supabase and Authentication State
             const [supabaseConfig, setSupabaseConfig] = useState(() => {
                 const saved = localStorage.getItem('vora_supabase_config');
-                return saved ? JSON.parse(saved) : null;
+                if (saved) return JSON.parse(saved);
+                return {
+                    url: 'http://2.25.178.128:8000',
+                    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgwNzA0MTQ1LCJleHAiOjE5MzgzODQxNDV9.0Nv1wsc6lcNmb2H5uf1G4qVBzJ75SW5D96lyTLgrmXc'
+                };
             });
             const [supabase, setSupabase] = useState(null);
             const [user, setUser] = useState(() => {
@@ -310,8 +314,8 @@
             const [authLoading, setAuthLoading] = useState(false);
 
             // Supabase Config Form inputs
-            const [configUrl, setConfigUrl] = useState('https://gejpfozexjxajahgtusr.supabase.co');
-            const [configAnonKey, setConfigAnonKey] = useState('');
+            const [configUrl, setConfigUrl] = useState('http://2.25.178.128:8000');
+            const [configAnonKey, setConfigAnonKey] = useState('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgwNzA0MTQ1LCJleHAiOjE5MzgzODQxNDV9.0Nv1wsc6lcNmb2H5uf1G4qVBzJ75SW5D96lyTLgrmXc');
             const [isConfiguringSupabase, setIsConfiguringSupabase] = useState(false);
 
             // Manager Panel State
