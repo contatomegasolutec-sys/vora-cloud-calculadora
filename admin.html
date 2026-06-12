@@ -123,12 +123,37 @@
 
         function App() {
             // Supabase project configurations
-            const [supabaseConfig] = useState({
-                url: 'https://gejpfozexjxajahgtusr.supabase.co',
-                anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlanBmb3pleGp4YWphaGd0dXNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzI3MjAsImV4cCI6MjA5MzMwODcyMH0.ivLVbj2jbhfXspNeC4NCN1O2NEIpfvarR_zU9w3FX3o'
+            const [supabaseConfig, setSupabaseConfig] = useState(() => {
+                const saved = localStorage.getItem('vora_supabase_config');
+                if (saved) return JSON.parse(saved);
+                return {
+                    url: 'https://gejpfozexjxajahgtusr.supabase.co',
+                    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlanBmb3pleGp4YWphaGd0dXNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzI3MjAsImV4cCI6MjA5MzMwODcyMH0.ivLVbj2jbhfXspNeC4NCN1O2NEIpfvarR_zU9w3FX3o'
+                };
             });
             const [supabase, setSupabase] = useState(null);
             
+            // Supabase Config Form inputs
+            const [configUrl, setConfigUrl] = useState(() => supabaseConfig.url);
+            const [configAnonKey, setConfigAnonKey] = useState(() => supabaseConfig.anonKey);
+            const [isConfiguringSupabase, setIsConfiguringSupabase] = useState(false);
+
+            const saveSupabaseConfig = (e) => {
+                e.preventDefault();
+                if (!configUrl.trim() || !configAnonKey.trim()) {
+                    alert("Preencha todos os campos da conexão.");
+                    return;
+                }
+                const newConfig = {
+                    url: configUrl.trim(),
+                    anonKey: configAnonKey.trim()
+                };
+                localStorage.setItem('vora_supabase_config', JSON.stringify(newConfig));
+                setSupabaseConfig(newConfig);
+                setIsConfiguringSupabase(false);
+                window.location.reload();
+            };
+
             const [activeSlug] = useState(getTenantSlug);
             const [activeTenant, setActiveTenant] = useState(null);
             const [loadingTenant, setLoadingTenant] = useState(true);
@@ -573,14 +598,56 @@
             if (tenantError) {
                 return (
                     <div className="flex-1 flex flex-col justify-center items-center bg-zinc-950 p-4 text-center space-y-4">
-                        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-6 rounded-3xl max-w-md space-y-2">
-                            <span className="font-headline font-black uppercase text-sm block">⚠️ Identificação Pendente</span>
-                            <p className="text-xs text-zinc-400 leading-relaxed">{tenantError}</p>
-                        </div>
-                        {dbWarning && (
-                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-6 rounded-3xl max-w-md text-xs leading-relaxed">
-                                Certifique-se de que a tabela <code className="bg-black/40 px-1 py-0.5 rounded">tenants</code> existe no seu banco de dados rodando o script <code className="bg-black/40 px-1 py-0.5 rounded">setup_tenants.sql</code>.
-                            </div>
+                        {isConfiguringSupabase ? (
+                            <form onSubmit={saveSupabaseConfig} className="space-y-4 pt-4 w-full max-w-md bg-zinc-900 border border-white/5 rounded-[2.5rem] p-8 shadow-2xl">
+                                <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                                    <h3 className="text-xs font-black uppercase tracking-wider text-white">Configurar Supabase</h3>
+                                    <button type="button" onClick={() => setIsConfiguringSupabase(false)} className="text-[10px] font-black uppercase text-zinc-400 hover:text-white transition-colors">Voltar</button>
+                                </div>
+                                <div className="space-y-1 text-left">
+                                    <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block">URL do Projeto</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={configUrl}
+                                        onChange={(e) => setConfigUrl(e.target.value)}
+                                        className="w-full h-12 border border-white/10 bg-black/30 font-bold text-xs px-4 rounded-xl text-white focus:outline-none focus:border-emerald-500 transition-all"
+                                        placeholder="https://xxxx.supabase.co"
+                                    />
+                                </div>
+                                <div className="space-y-1 text-left">
+                                    <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block">Anon Key / API Key</label>
+                                    <input
+                                        type="password"
+                                        required
+                                        value={configAnonKey}
+                                        onChange={(e) => setConfigAnonKey(e.target.value)}
+                                        className="w-full h-12 border border-white/10 bg-black/30 font-bold text-xs px-4 rounded-xl text-white focus:outline-none focus:border-emerald-500 transition-all"
+                                        placeholder="Insira a Anon Key"
+                                    />
+                                </div>
+                                <button type="submit" className="w-full h-12 rounded-2xl text-xs uppercase font-black tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-lg font-bold">
+                                    Salvar Conexão
+                                </button>
+                            </form>
+                        ) : (
+                            <>
+                                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-6 rounded-3xl max-w-md space-y-2">
+                                    <span className="font-headline font-black uppercase text-sm block">⚠️ Identificação Pendente</span>
+                                    <p className="text-xs text-zinc-400 leading-relaxed">{tenantError}</p>
+                                </div>
+                                {dbWarning && (
+                                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-6 rounded-3xl max-w-md text-xs leading-relaxed">
+                                        Certifique-se de que a tabela <code className="bg-black/40 px-1 py-0.5 rounded">tenants</code> existe no seu banco de dados rodando o script <code className="bg-black/40 px-1 py-0.5 rounded">setup_tenants.sql</code>.
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => setIsConfiguringSupabase(true)}
+                                    className="px-6 h-12 rounded-2xl text-xs uppercase font-black tracking-widest bg-zinc-800 hover:bg-zinc-700 text-white transition-all shadow-lg active:scale-95"
+                                >
+                                    Configurar Banco Supabase
+                                </button>
+                            </>
                         )}
                         <DevFooter />
                     </div>

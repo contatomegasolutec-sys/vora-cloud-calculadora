@@ -545,6 +545,32 @@
                 loadRemoteSettings();
             }, [supabase, user]);
 
+            // Redirecionar lojista de tenant logado na calculadora principal
+            useEffect(() => {
+                const checkAndRedirectTenantUser = async () => {
+                    if (!supabase || !user || !user.tenant_id) return;
+                    try {
+                        const { data: tenant, error: tErr } = await supabase
+                            .from('tenants')
+                            .select('slug')
+                            .eq('id', user.tenant_id)
+                            .maybeSingle();
+                        if (tErr) throw tErr;
+                        if (tenant && tenant.slug) {
+                            if (window.location.protocol === 'file:') {
+                                window.location.href = `empresa.html?id=${tenant.slug}`;
+                            } else {
+                                window.location.href = `/${tenant.slug}`;
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Erro no auto-redirecionamento do lojista corporativo:", err);
+                    }
+                };
+                checkAndRedirectTenantUser();
+            }, [supabase, user]);
+
+
             const handleLogin = async (e) => {
                 if (e) e.preventDefault();
                 if (!supabase) {

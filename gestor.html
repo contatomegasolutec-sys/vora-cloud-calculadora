@@ -139,11 +139,37 @@
 
         function App() {
             // Supabase and Authentication State
-            const [supabaseConfig] = useState({
-                url: 'https://gejpfozexjxajahgtusr.supabase.co',
-                anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlanBmb3pleGp4YWphaGd0dXNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzI3MjAsImV4cCI6MjA5MzMwODcyMH0.ivLVbj2jbhfXspNeC4NCN1O2NEIpfvarR_zU9w3FX3o'
+            const [supabaseConfig, setSupabaseConfig] = useState(() => {
+                const saved = localStorage.getItem('vora_supabase_config');
+                if (saved) return JSON.parse(saved);
+                return {
+                    url: 'https://gejpfozexjxajahgtusr.supabase.co',
+                    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlanBmb3pleGp4YWphaGd0dXNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzI3MjAsImV4cCI6MjA5MzMwODcyMH0.ivLVbj2jbhfXspNeC4NCN1O2NEIpfvarR_zU9w3FX3o'
+                };
             });
             const [supabase, setSupabase] = useState(null);
+
+            // Supabase Config Form inputs
+            const [configUrl, setConfigUrl] = useState(() => supabaseConfig.url);
+            const [configAnonKey, setConfigAnonKey] = useState(() => supabaseConfig.anonKey);
+            const [isConfiguringSupabase, setIsConfiguringSupabase] = useState(false);
+
+            const saveSupabaseConfig = (e) => {
+                e.preventDefault();
+                if (!configUrl.trim() || !configAnonKey.trim()) {
+                    alert("Preencha todos os campos da conexão.");
+                    return;
+                }
+                const newConfig = {
+                    url: configUrl.trim(),
+                    anonKey: configAnonKey.trim()
+                };
+                localStorage.setItem('vora_supabase_config', JSON.stringify(newConfig));
+                setSupabaseConfig(newConfig);
+                setIsConfiguringSupabase(false);
+                window.location.reload();
+            };
+
             const [user, setUser] = useState(() => {
                 const saved = sessionStorage.getItem('vora_admin_user');
                 return saved ? JSON.parse(saved) : null;
@@ -756,47 +782,88 @@
                                 <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Acesso Exclusivo para Gestores</p>
                             </div>
 
-                            <form onSubmit={handleLogin} className="space-y-4 pt-4">
-                                {dbWarning && (
-                                    <div className="p-3.5 bg-amber-950/20 border border-amber-900/40 rounded-xl text-amber-400 text-xs font-semibold text-center leading-relaxed">
-                                        ⚠️ Tabelas corporativas não configuradas no Supabase. Execute o script <code className="bg-black/30 px-1 py-0.5 rounded font-mono text-white">setup_tenants.sql</code> para ativar os gestores.
+                            {isConfiguringSupabase ? (
+                                <form onSubmit={saveSupabaseConfig} className="space-y-4 pt-4">
+                                    <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                                        <h3 className="text-xs font-black uppercase tracking-wider text-white">Configurar Supabase</h3>
+                                        <button type="button" onClick={() => setIsConfiguringSupabase(false)} className="text-[10px] font-black uppercase text-zinc-400 hover:text-white transition-colors">Voltar</button>
                                     </div>
-                                )}
-                                {authError && (
-                                    <div className="p-3.5 bg-red-950/30 border border-red-900/40 rounded-xl text-red-400 text-xs font-bold text-center">
-                                        {authError}
+                                    <div className="space-y-1 text-left">
+                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block">URL do Projeto</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={configUrl}
+                                            onChange={(e) => setConfigUrl(e.target.value)}
+                                            className="w-full h-12 border border-white/10 bg-black/30 font-bold text-xs px-4 rounded-xl text-white focus:outline-none focus:border-emerald-500 transition-all"
+                                            placeholder="https://xxxx.supabase.co"
+                                        />
                                     </div>
-                                )}
-                                <div className="space-y-1">
-                                    <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block">Nome de Usuário</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={loginUsername}
-                                        onChange={(e) => setLoginUsername(e.target.value)}
-                                        className="w-full h-12 border border-white/10 bg-black/30 font-bold text-xs px-4 rounded-xl text-white focus:outline-none focus:border-emerald-500 transition-all"
-                                        placeholder="Digite seu usuário"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block">Senha</label>
-                                    <input
-                                        type="password"
-                                        required
-                                        value={loginPassword}
-                                        onChange={(e) => setLoginPassword(e.target.value)}
-                                        className="w-full h-12 border border-white/10 bg-black/30 font-bold text-xs px-4 rounded-xl text-white focus:outline-none focus:border-emerald-500 transition-all"
-                                        placeholder="Digite sua senha"
-                                    />
-                                </div>
-                                <button 
-                                    type="submit" 
-                                    disabled={authLoading}
-                                    className="w-full h-12 rounded-2xl text-xs uppercase font-black tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 font-bold"
-                                >
-                                    {authLoading ? "Acessando..." : "Entrar no Painel"}
-                                </button>
-                            </form>
+                                    <div className="space-y-1 text-left">
+                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block">Anon Key / API Key</label>
+                                        <input
+                                            type="password"
+                                            required
+                                            value={configAnonKey}
+                                            onChange={(e) => setConfigAnonKey(e.target.value)}
+                                            className="w-full h-12 border border-white/10 bg-black/30 font-bold text-xs px-4 rounded-xl text-white focus:outline-none focus:border-emerald-500 transition-all"
+                                            placeholder="Insira a Anon Key"
+                                        />
+                                    </div>
+                                    <button type="submit" className="w-full h-12 rounded-2xl text-xs uppercase font-black tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-lg font-bold">
+                                        Salvar Conexão
+                                    </button>
+                                </form>
+                            ) : (
+                                <form onSubmit={handleLogin} className="space-y-4 pt-4">
+                                    {dbWarning && (
+                                        <div className="p-3.5 bg-amber-950/20 border border-amber-900/40 rounded-xl text-amber-400 text-xs font-semibold text-center leading-relaxed">
+                                            ⚠️ Tabelas corporativas não configuradas no Supabase. Execute o script <code className="bg-black/30 px-1 py-0.5 rounded font-mono text-white">setup_tenants.sql</code> para ativar os gestores.
+                                        </div>
+                                    )}
+                                    {authError && (
+                                        <div className="p-3.5 bg-red-950/30 border border-red-900/40 rounded-xl text-red-400 text-xs font-bold text-center">
+                                            {authError}
+                                        </div>
+                                    )}
+                                    <div className="space-y-1">
+                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block">Nome de Usuário</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={loginUsername}
+                                            onChange={(e) => setLoginUsername(e.target.value)}
+                                            className="w-full h-12 border border-white/10 bg-black/30 font-bold text-xs px-4 rounded-xl text-white focus:outline-none focus:border-emerald-500 transition-all"
+                                            placeholder="Digite seu usuário"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block">Senha</label>
+                                        <input
+                                            type="password"
+                                            required
+                                            value={loginPassword}
+                                            onChange={(e) => setLoginPassword(e.target.value)}
+                                            className="w-full h-12 border border-white/10 bg-black/30 font-bold text-xs px-4 rounded-xl text-white focus:outline-none focus:border-emerald-500 transition-all"
+                                            placeholder="Digite sua senha"
+                                        />
+                                    </div>
+                                    <button 
+                                        type="submit" 
+                                        disabled={authLoading}
+                                        className="w-full h-12 rounded-2xl text-xs uppercase font-black tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 font-bold"
+                                    >
+                                        {authLoading ? "Acessando..." : "Entrar no Painel"}
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setIsConfiguringSupabase(true)}
+                                        className="w-full h-12 rounded-2xl text-xs uppercase font-black tracking-widest bg-zinc-800 hover:bg-zinc-700 text-white transition-all shadow-lg active:scale-95 font-bold"
+                                    >
+                                        Configurar Banco Supabase
+                                    </button>
+                                </form>
+                            )}
                         </div>
                         <DevFooter />
                     </div>

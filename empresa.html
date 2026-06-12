@@ -350,8 +350,26 @@
             });
 
             // Tenant/Corporate States
-            const [tenant, setTenant] = useState(null);
-            const [tenantLoading, setTenantLoading] = useState(true);
+            const [tenant, setTenant] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    return {
+                        id: 'mock-id',
+                        name: 'Mock GYN STORE',
+                        slug: 'gynstore',
+                        phrase: 'Sua loja de calçados parceira',
+                        cards_data: [
+                            { name: 'Visa', color: '#0055ff', maxParc: 12, pixRate: 0.99, debitRate: 1.99, rates: [2.99, 3.99, 4.99, 5.99, 6.99, 7.99, 8.99, 9.99, 10.99, 11.99, 12.99, 13.99] },
+                            { name: 'Mastercard', color: '#ff5500', maxParc: 12, pixRate: 0.99, debitRate: 1.99, rates: [2.99, 3.99, 4.99, 5.99, 6.99, 7.99, 8.99, 9.99, 10.99, 11.99, 12.99, 13.99] }
+                        ]
+                    };
+                }
+                return null;
+            });
+            const [tenantLoading, setTenantLoading] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                return params.get('mock') === 'true' ? false : true;
+            });
             const [tenantError, setTenantError] = useState('');
             const [tenantSlug] = useState(() => {
                 const params = new URLSearchParams(window.location.search);
@@ -512,6 +530,21 @@
 
             // Carregar configurações do Tenant dinamicamente
             useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    if (tenant && tenant.cards_data) {
+                        setData(tenant.cards_data.map((col) => {
+                            if (!col.maxParc) col.maxParc = col.rates?.length || 12;
+                            if (col.debitRate === undefined) col.debitRate = 0;
+                            if (col.pixRate === undefined) col.pixRate = 0;
+                            const rates = [...(col.rates || [])];
+                            while (rates.length < 24) rates.push(0);
+                            return { ...col, debitRate: col.debitRate, pixRate: col.pixRate, rates };
+                        }));
+                    }
+                    return;
+                }
+
                 const fetchTenant = async () => {
                     if (!supabase) return;
                     setTenantLoading(true);
@@ -1348,25 +1381,29 @@
 
                     <div className={`bg-[#004d1a] ${isMultipleMode ? 'p-3 md:p-5 rounded-[1.5rem] gap-4' : 'p-4 md:p-8 rounded-[2rem] gap-6'} border border-white/5 flex flex-col justify-between shadow-2xl relative z-10 shrink-0 text-center ${isMultipleMode ? 'items-stretch w-full' : 'items-center'}`}>
                         <div className="flex justify-between items-center w-full gap-2 sm:gap-4">
-                            <button 
-                                onClick={isMultipleMode ? () => setIsMultipleMode(false) : addColumn} 
-                                className={`bg-white/10 text-white hover:bg-white/20 rounded-xl shrink-0 border border-white/10 shadow-inner flex items-center justify-center transition-all ${isMultipleMode ? 'h-10 px-2 sm:px-4 gap-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider' : 'h-12 w-12 rounded-2xl'}`} 
-                                title={isMultipleMode ? "Voltar para Calculadora Simples" : "Adicionar Bandeira"}
-                            >
-                                {isMultipleMode ? (
-                                    <>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 stroke-[3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                                        </svg>
-                                        <div className="flex flex-col text-left leading-[1.1]">
-                                            <span>Pagamento</span>
-                                            <span>Único</span>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <PlusIcon className="" />
-                                )}
-                            </button>
+                            {!isMultipleMode && tenant ? (
+                                <div className="w-12 h-12 shrink-0" />
+                            ) : (
+                                <button 
+                                    onClick={isMultipleMode ? () => setIsMultipleMode(false) : addColumn} 
+                                    className={`bg-white/10 text-white hover:bg-white/20 rounded-xl shrink-0 border border-white/10 shadow-inner flex items-center justify-center transition-all ${isMultipleMode ? 'h-10 px-2 sm:px-4 gap-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider' : 'h-12 w-12 rounded-2xl'}`} 
+                                    title={isMultipleMode ? "Voltar para Calculadora Simples" : "Adicionar Bandeira"}
+                                >
+                                    {isMultipleMode ? (
+                                        <>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 stroke-[3] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                            </svg>
+                                            <div className="flex flex-col text-left leading-[1.1]">
+                                                <span>Pagamento</span>
+                                                <span>Único</span>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <PlusIcon className="" />
+                                    )}
+                                </button>
+                            )}
 
                             <h2 className={`font-headline font-black uppercase italic tracking-wider text-white px-1 sm:px-2 flex-1 text-center ${isMultipleMode ? 'text-[9px] sm:text-xs md:text-base whitespace-normal sm:whitespace-nowrap leading-none' : 'text-xs sm:text-sm md:text-xl whitespace-nowrap'}`}>
                                 {isMultipleMode ? (
@@ -1660,7 +1697,7 @@
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0 ml-2">
                                             <span className="text-[8px] font-black tracking-widest bg-white/20 text-white px-2 py-0.5 rounded-full">ATÉ {card.maxParc}X</span>
-                                            <button onClick={() => openSettings(colIdx)} className="h-8 w-8 hover:bg-white/20 text-white rounded-xl transition-all flex items-center justify-center shrink-0" title="Editar Bandeira">
+                                            <button onClick={() => openSettings(colIdx)} className={`h-8 w-8 hover:bg-white/20 text-white rounded-xl transition-all flex items-center justify-center shrink-0 ${tenant ? 'hidden' : ''}`} title="Editar Bandeira">
                                                 <PencilIcon />
                                             </button>
                                         </div>

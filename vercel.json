@@ -2,12 +2,12 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/gynstore/admin",
+      "source": "/:slug/admin",
       "destination": "/admin"
     },
     {
-      "source": "/gynstore",
-      "destination": "/empresa?id=gynstore"
+      "source": "/:slug",
+      "destination": "/empresa?id=:slug"
     }
   ]
 }
