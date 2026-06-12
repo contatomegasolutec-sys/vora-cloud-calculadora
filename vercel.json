@@ -1,0 +1,13 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/gynstore/admin",
+      "destination": "/admin"
+    },
+    {
+      "source": "/gynstore",
+      "destination": "/empresa?id=gynstore"
+    }
+  ]
+}

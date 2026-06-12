@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/icon-192.png">
+    <title>Painel Administrativo da Empresa - VORA</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        headline: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- React and ReactDOM CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style type="text/css">
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        @keyframes pulse-whatsapp {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+    </style>
+</head>
+<body class="h-full text-zinc-100 flex flex-col selection:bg-emerald-500 selection:text-black">
+
+    <div id="root" class="flex-1 flex flex-col min-h-screen"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // WhatsApp Icon SVG
+        const WhatsAppIcon = ({ className = "h-4 w-4" }) => (
+            <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.966a9.78 9.78 0 0 0-6.979-2.836c-5.442 0-9.866 4.372-9.87 9.802 0 1.698.48 3.35 1.387 4.814l-.993 3.63 3.733-.967c1.472.788 2.802 1.135 3.913 1.135zM17.476 14.4c-.295-.149-1.748-.865-2.017-.964-.269-.099-.465-.148-.659.149-.195.297-.751.964-.922 1.162-.17.197-.341.222-.636.074-.295-.149-1.246-.459-2.375-1.47-1.129-1.01-1.89-2.259-2.112-2.655-.222-.397-.024-.611.175-.81.18-.178.396-.462.593-.693.197-.23.262-.396.393-.661.132-.265.066-.495-.033-.693-.099-.197-.751-1.815-1.03-2.478-.27-.655-.54-.566-.751-.577-.195-.008-.42-.01-.643-.01-.222 0-.586.082-.892.42-.306.338-1.17 1.139-1.17 2.78 0 1.64 1.192 3.223 1.356 3.447.165.224 2.346 3.585 5.683 5.027.792.343 1.411.549 1.895.702.798.254 1.524.218 2.1.132.64-.095 1.747-.714 1.993-1.405.247-.69.247-1.288.173-1.405-.074-.117-.27-.217-.565-.366z"/>
+            </svg>
+        );
+
+        // Standard Back Button
+        const BackIcon = () => (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+        );
+
+        // Developer Footer
+        const DevFooter = () => (
+            <div className="w-full text-center py-4 mt-auto">
+                <a
+                    href="https://voracloud.com.br"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-zinc-600 hover:text-emerald-500 font-bold uppercase tracking-widest transition-colors"
+                >
+                    Desenvolvido por voracloud.com.br
+                </a>
+            </div>
+        );
+
+        // Extract tenant slug from URL
+        const getTenantSlug = () => {
+            const path = window.location.pathname;
+            const parts = path.split('/').filter(Boolean);
+            if (parts.length >= 2 && parts[parts.length - 1] === 'admin') {
+                return parts[parts.length - 2];
+            }
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id') || params.get('tenant') || '';
+        };
+
+        const DEFAULT_RATES = {
+            'VISA': [2.50, 3.68, 4.53, 5.38, 6.23, 7.08, 8.23, 9.08, 9.93, 10.78, 11.63, 12.48],
+            'MasterCard': [2.50, 3.68, 4.53, 5.38, 6.23, 7.08, 8.23, 9.08, 9.93, 10.78, 11.63, 12.48],
+            'ELO': [2.50, 3.68, 4.53, 5.38, 6.23, 7.08, 8.23, 9.08, 9.93, 10.78, 11.63, 12.48],
+            'Hiper': [2.50, 3.68, 4.53, 5.38, 6.23, 7.08, 8.23, 9.08, 9.93, 10.78, 11.63, 12.48]
+        };
+
+        const makeRates = (base) => {
+            const arr = new Array(24).fill(0);
+            base.forEach((r, i) => arr[i] = r);
+            return arr;
+        };
+
+        function App() {
+            // Supabase project configurations
+            const [supabaseConfig] = useState({
+                url: 'https://gejpfozexjxajahgtusr.supabase.co',
+                anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdlanBmb3pleGp4YWphaGd0dXNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MzI3MjAsImV4cCI6MjA5MzMwODcyMH0.ivLVbj2jbhfXspNeC4NCN1O2NEIpfvarR_zU9w3FX3o'
+            });
+            const [supabase, setSupabase] = useState(null);
+            
+            const [activeSlug] = useState(getTenantSlug);
+            const [activeTenant, setActiveTenant] = useState(null);
+            const [loadingTenant, setLoadingTenant] = useState(true);
+            const [tenantError, setTenantError] = useState('');
+
+            // Auth State
+            const [user, setUser] = useState(() => {
+                const saved = sessionStorage.getItem('vora_tenant_user');
+                const parsed = saved ? JSON.parse(saved) : null;
+                // Double check if the loaded session belongs to the current URL slug
+                if (parsed && parsed.tenant_slug === getTenantSlug()) {
+                    return parsed;
+                }
+                return null;
+            });
+
+            // Login fields
+            const [loginUsername, setLoginUsername] = useState('');
+            const [loginPassword, setLoginPassword] = useState('');
+            const [authError, setAuthError] = useState('');
+            const [authLoading, setAuthLoading] = useState(false);
+
+            // Tenant Config dashboard state
+            const [tenantData, setTenantData] = useState(null);
+            const [tenantVisitors, setTenantVisitors] = useState([]);
+            const [tenantOperatorsList, setTenantOperatorsList] = useState([]);
+            const [tenantOperatorsHistoryList, setTenantOperatorsHistoryList] = useState([]);
+            const [dbWarning, setDbWarning] = useState(false);
+            const [isSavingTenant, setIsSavingTenant] = useState(false);
+
+            // Operators management state
+            const [newOperatorName, setNewOperatorName] = useState('');
+            const [newOperatorPhone, setNewOperatorPhone] = useState('');
+            const [isCreateOperatorOpen, setIsCreateOperatorOpen] = useState(false);
+
+            // Edit Rates Modals
+            const [editingIdx, setEditingIdx] = useState(null);
+            const [modalData, setModalData] = useState(null);
+            const [modalRates, setModalRates] = useState([]);
+
+            // Initialize Supabase
+            useEffect(() => {
+                try {
+                    const client = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
+                    setSupabase(client);
+                } catch (e) {
+                    console.error("Erro ao inicializar cliente Supabase:", e);
+                }
+            }, [supabaseConfig]);
+
+            // Fetch tenant details on load
+            useEffect(() => {
+                const fetchTenant = async () => {
+                    if (!supabase || !activeSlug) {
+                        if (!activeSlug) {
+                            setTenantError("Nenhuma empresa identificada na URL (ex: /gynstore/admin).");
+                            setLoadingTenant(false);
+                        }
+                        return;
+                    }
+                    try {
+                        const { data, error } = await supabase
+                            .from('tenants')
+                            .select('*')
+                            .eq('slug', activeSlug.trim().toLowerCase())
+                            .maybeSingle();
+
+                        if (error) throw error;
+                        if (!data) {
+                            setTenantError(`Empresa "${activeSlug}" não encontrada no banco.`);
+                        } else {
+                            setActiveTenant(data);
+                            setTenantData(data);
+                        }
+                    } catch (err) {
+                        console.error("Erro ao carregar empresa:", err);
+                        setTenantError("Erro de banco: execute o setup_tenants.sql para configurar.");
+                        setDbWarning(true);
+                    } finally {
+                        setLoadingTenant(false);
+                    }
+                };
+                fetchTenant();
+            }, [supabase, activeSlug]);
+
+            // Load dashboard data if logged in
+            const fetchDashboardData = async () => {
+                if (!supabase || !activeTenant || !user) return;
+                try {
+                    // 1. Visitors / Leads
+                    const { data: visitors, error: vErr } = await supabase
+                        .from('tenant_visitors')
+                        .select('*')
+                        .eq('tenant_id', activeTenant.id)
+                        .order('visited_at', { ascending: false });
+                    if (vErr) throw vErr;
+                    setTenantVisitors(visitors || []);
+
+                    // 2. Operators
+                    const { data: operators, error: oErr } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('tenant_id', activeTenant.id)
+                        .eq('is_manager', false)
+                        .order('created_at', { ascending: false });
+                    if (oErr) throw oErr;
+                    setTenantOperatorsList(operators || []);
+
+                    // 3. Operators Login History
+                    const opIds = (operators || []).map(o => o.id);
+                    if (opIds.length > 0) {
+                        const { data: history, error: hErr } = await supabase
+                            .from('connection_history')
+                            .select(`
+                                id,
+                                logged_in_at,
+                                user_id,
+                                profiles (
+                                    name,
+                                    phone
+                                )
+                            `)
+                            .in('user_id', opIds)
+                            .order('logged_in_at', { ascending: false })
+                            .limit(50);
+                        if (hErr) throw hErr;
+                        setTenantOperatorsHistoryList(history || []);
+                    } else {
+                        setTenantOperatorsHistoryList([]);
+                    }
+                    setDbWarning(false);
+                } catch (err) {
+                    console.error("Erro ao carregar painel:", err);
+                    if (err.message && (err.message.includes("does not exist") || err.message.includes("404") || err.code === '42P01')) {
+                        setDbWarning(true);
+                    }
+                }
+            };
+
+            useEffect(() => {
+                if (supabase && activeTenant && user) {
+                    fetchDashboardData();
+                    const interval = setInterval(fetchDashboardData, 15000);
+                    return () => clearInterval(interval);
+                }
+            }, [supabase, activeTenant, user]);
+
+            // Authenticate Corporate Manager
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                if (!supabase || !activeTenant) return;
+
+                setAuthLoading(true);
+                setAuthError('');
+
+                try {
+                    let profiles = [];
+                    // Check exact password match (phone column)
+                    const { data: pExact, error: errExact } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('phone', loginPassword.trim());
+                    
+                    if (pExact) profiles = pExact;
+                    if (errExact) throw errExact;
+
+                    // Filter by username (case-insensitive) and confirm tenant_id + is_manager
+                    const profile = (profiles || []).find(p => 
+                        p.name && p.name.trim().toLowerCase() === loginUsername.trim().toLowerCase()
+                    );
+
+                    if (!profile) {
+                        setAuthError("Usuário ou senha inválidos.");
+                        setAuthLoading(false);
+                        return;
+                    }
+
+                    if (!profile.is_manager) {
+                        setAuthError("Acesso restrito a gestores.");
+                        setAuthLoading(false);
+                        return;
+                    }
+
+                    if (profile.tenant_id !== activeTenant.id) {
+                        setAuthError("Você não possui permissão de gestor para esta empresa.");
+                        setAuthLoading(false);
+                        return;
+                    }
+
+                    // Register Connection
+                    await supabase
+                        .from('connection_history')
+                        .insert({ user_id: profile.id });
+
+                    const sessionUser = {
+                        ...profile,
+                        tenant_slug: activeTenant.slug
+                    };
+
+                    sessionStorage.setItem('vora_tenant_user', JSON.stringify(sessionUser));
+                    setUser(sessionUser);
+                } catch (err) {
+                    console.error("Erro de autenticação:", err);
+                    setAuthError("Falha na autenticação: " + err.message);
+                } finally {
+                    setAuthLoading(false);
+                }
+            };
+
+            const handleLogout = () => {
+                sessionStorage.removeItem('vora_tenant_user');
+                setUser(null);
+                setTenantVisitors([]);
+                setTenantOperatorsList([]);
+                setTenantOperatorsHistoryList([]);
+            };
+
+            // Save visual identity and rates
+            const handleSaveTenantChanges = async () => {
+                if (!supabase || !tenantData) return;
+                setIsSavingTenant(true);
+                try {
+                    const { error } = await supabase
+                        .from('tenants')
+                        .update({
+                            name: tenantData.name,
+                            phrase: tenantData.phrase,
+                            logo_text: tenantData.logo_text,
+                            logo_image: tenantData.logo_image,
+                            whatsapp_number: tenantData.whatsapp_number,
+                            whatsapp_message: tenantData.whatsapp_message,
+                            cards_data: tenantData.cards_data,
+                            structure_type: tenantData.structure_type || 'individual'
+                        })
+                        .eq('id', tenantData.id);
+
+                    if (error) throw error;
+                    alert("Configurações e taxas salvas com sucesso!");
+                    fetchDashboardData();
+                } catch (err) {
+                    console.error("Erro ao salvar alterações:", err);
+                    alert("Erro ao salvar: " + err.message);
+                } finally {
+                    setIsSavingTenant(false);
+                }
+            };
+
+            // Operator CRUD
+            const handleCreateOperator = async (e) => {
+                e.preventDefault();
+                if (!supabase || !activeTenant || !newOperatorName.trim() || !newOperatorPhone.trim()) return;
+
+                try {
+                    const cleanPhone = newOperatorPhone.trim().replace(/\D/g, '');
+                    const phoneVal = cleanPhone || newOperatorPhone.trim();
+
+                    const { error } = await supabase
+                        .from('profiles')
+                        .insert({
+                            name: newOperatorName.trim(),
+                            phone: phoneVal,
+                            is_manager: false,
+                            tenant_id: activeTenant.id
+                        });
+
+                    if (error) throw error;
+                    alert(`Lojista "${newOperatorName}" cadastrado com sucesso!`);
+                    setIsCreateOperatorOpen(false);
+                    setNewOperatorName('');
+                    setNewOperatorPhone('');
+                    fetchDashboardData();
+                } catch (err) {
+                    console.error("Erro ao criar operador:", err);
+                    alert("Erro ao cadastrar lojista: " + err.message);
+                }
+            };
+
+            const handleDeleteOperator = async (operatorId) => {
+                if (!supabase) return;
+                if (!confirm("Tem certeza de que deseja remover este operador da empresa?")) return;
+
+                try {
+                    const { error } = await supabase
+                        .from('profiles')
+                        .delete()
+                        .eq('id', operatorId);
+
+                    if (error) throw error;
+                    alert("Lojista removido com sucesso!");
+                    fetchDashboardData();
+                } catch (err) {
+                    console.error("Erro ao remover lojista:", err);
+                    alert("Erro ao remover lojista: " + err.message);
+                }
+            };
+
+            // Rates card modal handlers
+            const openSettings = (idx) => {
+                const card = tenantData.cards_data[idx];
+                setEditingIdx(idx);
+                setModalData({ ...card });
+
+                const ratesList = [
+                    { installment: 'PIX', percentStr: (card.pixRate || 0).toString().replace('.', ','), coefStr: '1' },
+                    { installment: 'DÉBITO', percentStr: (card.debitRate || 0).toString().replace('.', ','), coefStr: '1' }
+                ];
+
+                for (let i = 0; i < 24; i++) {
+                    const val = card.rates && card.rates[i] !== undefined ? card.rates[i] : 0;
+                    const cVal = 1 - val / 100;
+                    ratesList.push({
+                        installment: i + 1,
+                        percentStr: val.toString().replace('.', ','),
+                        coefStr: parseFloat(cVal.toFixed(6)).toString().replace('.', ',')
+                    });
+                }
+                setModalRates(ratesList);
+            };
+
+            const handlePercentChange = (i, valStr) => {
+                const updated = [...modalRates];
+                updated[i] = { ...updated[i], percentStr: valStr };
+                const parsedStr = valStr.replace(',', '.');
+                const p = parseFloat(parsedStr);
+                if (!isNaN(p)) {
+                    const c = 1 - p / 100;
+                    updated[i].coefStr = parseFloat(c.toFixed(6)).toString().replace('.', ',');
+                }
+                setModalRates(updated);
+            };
+
+            const handleCoefChange = (i, valStr) => {
+                const updated = [...modalRates];
+                updated[i] = { ...updated[i], coefStr: valStr };
+                const parsedStr = valStr.replace(',', '.');
+                const c = parseFloat(parsedStr);
+                if (!isNaN(c)) {
+                    const p = (1 - c) * 100;
+                    updated[i].percentStr = parseFloat(p.toFixed(4)).toString().replace('.', ',');
+                }
+                setModalRates(updated);
+            };
+
+            const restoreCurrentDefault = () => {
+                if (!modalData) return;
+                const ratesList = [
+                    { installment: 'PIX', percentStr: '0', coefStr: '1' },
+                    { installment: 'DÉBITO', percentStr: '0', coefStr: '1' }
+                ];
+                const base = DEFAULT_RATES[modalData.name] || DEFAULT_RATES['VISA'];
+                base.forEach((rate, i) => {
+                    const p = rate || 0;
+                    const c = 1 - p / 100;
+                    ratesList.push({
+                        installment: i + 1,
+                        percentStr: p.toString().replace('.', ','),
+                        coefStr: parseFloat(c.toFixed(6)).toString().replace('.', ',')
+                    });
+                });
+                setModalRates(ratesList);
+            };
+
+            const deleteCurrent = () => {
+                if (!confirm("Excluir esta bandeira?")) return;
+                const updated = [...tenantData.cards_data];
+                updated.splice(editingIdx, 1);
+                setTenantData({ ...tenantData, cards_data: updated });
+                setEditingIdx(null);
+                setModalData(null);
+            };
+
+            const saveCurrent = () => {
+                const updated = [...tenantData.cards_data];
+                const pix = parseFloat(modalRates[0].percentStr.replace(',', '.')) || 0;
+                const deb = parseFloat(modalRates[1].percentStr.replace(',', '.')) || 0;
+
+                const list = new Array(24).fill(0);
+                for (let i = 2; i < modalRates.length; i++) {
+                    list[i - 2] = parseFloat(modalRates[i].percentStr.replace(',', '.')) || 0;
+                }
+
+                updated[editingIdx] = {
+                    name: modalData.name,
+                    color: modalData.color,
+                    maxParc: modalData.maxParc,
+                    pixRate: pix,
+                    debitRate: deb,
+                    rates: list
+                };
+
+                setTenantData({ ...tenantData, cards_data: updated });
+                setEditingIdx(null);
+                setModalData(null);
+            };
+
+            const addColumn = () => {
+                const base = [
+                    { name: 'VISA', color: '#0d47a1', maxParc: 12, pixRate: 0, debitRate: 0, rates: makeRates(DEFAULT_RATES['VISA']) },
+                    { name: 'MasterCard', color: '#f57f17', maxParc: 12, pixRate: 0, debitRate: 0, rates: makeRates(DEFAULT_RATES['MasterCard']) },
+                    { name: 'ELO', color: '#000000', maxParc: 12, pixRate: 0, debitRate: 0, rates: makeRates(DEFAULT_RATES['ELO']) },
+                    { name: 'Hiper', color: '#c62828', maxParc: 12, pixRate: 0, debitRate: 0, rates: makeRates(DEFAULT_RATES['Hiper']) }
+                ];
+                const existing = tenantData.cards_data || [];
+                const next = base.find(b => !existing.some(e => e.name.toUpperCase() === b.name.toUpperCase()));
+                const added = next || { name: 'OUTRA', color: '#666666', maxParc: 12, pixRate: 0, debitRate: 0, rates: makeRates(DEFAULT_RATES['VISA']) };
+
+                setTenantData({
+                    ...tenantData,
+                    cards_data: [...existing, added]
+                });
+            };
+
+            const handleExportLeads = () => {
+                if (tenantVisitors.length === 0) {
+                    alert("Não há visitantes registrados para exportar.");
+                    return;
+                }
+                let csv = "data:text/csv;charset=utf-8,Nome,Telefone,Data de Acesso\n";
+                tenantVisitors.forEach(v => {
+                    const date = new Date(v.visited_at).toLocaleString('pt-BR');
+                    csv += `"${v.name}","${v.phone}","${date}"\n`;
+                });
+                const link = document.createElement("a");
+                link.setAttribute("href", encodeURI(csv));
+                link.setAttribute("download", `leads_${activeSlug}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            // Loading state
+            if (loadingTenant) {
+                return (
+                    <div className="flex-1 flex flex-col justify-center items-center bg-zinc-950 p-4">
+                        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-emerald-500 border-r-2 border-zinc-700" />
+                        <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest pt-4">Carregando Painel...</span>
+                    </div>
+                );
+            }
+
+            // Error state
+            if (tenantError) {
+                return (
+                    <div className="flex-1 flex flex-col justify-center items-center bg-zinc-950 p-4 text-center space-y-4">
+                        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-6 rounded-3xl max-w-md space-y-2">
+                            <span className="font-headline font-black uppercase text-sm block">⚠️ Identificação Pendente</span>
+                            <p className="text-xs text-zinc-400 leading-relaxed">{tenantError}</p>
+                        </div>
+                        {dbWarning && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-6 rounded-3xl max-w-md text-xs leading-relaxed">
+                                Certifique-se de que a tabela <code className="bg-black/40 px-1 py-0.5 rounded">tenants</code> existe no seu banco de dados rodando o script <code className="bg-black/40 px-1 py-0.5 rounded">setup_tenants.sql</code>.
+                            </div>
+                        )}
+                        <DevFooter />
+                    </div>
+                );
+            }
+
+            // Login Interface
+            if (!user) {
+                // Customized Logo fallback or loaded image logo
+                const displayLogo = activeTenant?.logo_image ? (
+                    <img src={activeTenant.logo_image} alt="Logo" className="mx-auto h-16 w-16 object-contain rounded-2xl shadow-xl" />
+                ) : (
+                    <div className="mx-auto bg-emerald-600 h-16 w-16 rounded-2xl flex items-center justify-center font-headline font-black text-white italic text-2xl shadow-xl uppercase">
+                        {activeTenant?.logo_text || activeTenant?.name?.charAt(0) || 'V'}
+                    </div>
+                );
+
+                return (
+                    <div className="flex-1 flex flex-col justify-center items-center p-4 md:p-8 min-h-screen bg-zinc-950 text-zinc-100">
+                        <div className="w-full max-w-md bg-zinc-900 border border-white/5 rounded-[2.5rem] p-8 shadow-2xl space-y-6 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -z-10" />
+                            
+                            <div className="text-center space-y-2">
+                                {displayLogo}
+                                <h2 className="font-headline font-black uppercase tracking-tight text-white text-xl md:text-2xl pt-2">
+                                    {activeTenant?.name || 'PAINEL CORPORATIVO'}
+                                </h2>
+                                <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Acesso para Gestores</p>
+                            </div>
+
+                            <form onSubmit={handleLogin} className="space-y-4 pt-4">
+                                {dbWarning && (
+                                    <div className="p-3.5 bg-amber-950/20 border border-amber-900/40 rounded-xl text-amber-400 text-xs font-semibold text-center leading-relaxed">
+                                        ⚠️ Tabelas corporativas não configuradas no Supabase. Execute o script <code className="bg-black/30 px-1 py-0.5 rounded font-mono text-white">setup_tenants.sql</code> no SQL Editor.
+                                    </div>
+                                )}
+                                {authError && (
+                                    <div className="p-3.5 bg-red-950/30 border border-red-900/40 rounded-xl text-red-400 text-xs font-bold text-center">
+                                        {authError}
+                                    </div>
+                                )}
+                                <div className="space-y-1">
+                                    <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block">Nome de Usuário</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={loginUsername}
+                                        onChange={(e) => setLoginUsername(e.target.value)}
+                                        className="w-full h-12 border border-white/10 bg-black/30 font-bold text-xs px-4 rounded-xl text-white focus:outline-none focus:border-emerald-500 transition-all"
+                                        placeholder="Digite seu usuário"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block">Senha</label>
+                                    <input
+                                        type="password"
+                                        required
+                                        value={loginPassword}
+                                        onChange={(e) => setLoginPassword(e.target.value)}
+                                        className="w-full h-12 border border-white/10 bg-black/30 font-bold text-xs px-4 rounded-xl text-white focus:outline-none focus:border-emerald-500 transition-all"
+                                        placeholder="Digite sua senha"
+                                    />
+                                </div>
+                                <button 
+                                    type="submit" 
+                                    disabled={authLoading}
+                                    className="w-full h-12 rounded-2xl text-xs uppercase font-black tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 font-bold"
+                                >
+                                    {authLoading ? "Acessando..." : "Entrar no Painel"}
+                                </button>
+                            </form>
+                        </div>
+                        <DevFooter />
+                    </div>
+                );
+            }
+
+            // Dashboard Interface (Logged In Manager)
+            return (
+                <div className="flex-1 flex flex-col bg-zinc-950 text-zinc-100 min-h-screen p-4 md:p-8 space-y-6">
+                    <div className="max-w-7xl mx-auto w-full space-y-6">
+                        
+                        {dbWarning && (
+                            <div className="w-full bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 text-amber-400 text-xs font-bold mb-2">
+                                ⚠️ Tabelas do Supabase incompletas. Execute o <code className="bg-black/30 px-1 py-0.5 rounded font-mono text-white">setup_tenants.sql</code> no SQL Editor.
+                            </div>
+                        )}
+
+                        {/* Navigation Header */}
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 pb-4 border-b border-white/5">
+                            <div>
+                                <h2 className="font-headline font-black text-xl md:text-2xl uppercase tracking-tight text-white flex items-center gap-2">
+                                    Painel Corporativo
+                                    <span className="text-[10px] font-black tracking-widest bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full uppercase">
+                                        Gestor de Grupo
+                                    </span>
+                                </h2>
+                                <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">
+                                    Administração: {activeTenant?.name || ''}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <a 
+                                    href={`/${activeTenant.slug}`}
+                                    target="_blank"
+                                    className="h-10 px-4 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs uppercase font-bold tracking-widest transition-all flex items-center justify-center border border-white/10"
+                                >
+                                    Ver Calculadora
+                                </a>
+                                <button 
+                                    onClick={handleLogout} 
+                                    className="h-10 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs uppercase font-bold tracking-widest transition-all"
+                                >
+                                    Sair do Painel
+                                </button>
+                            </div>
+                        </div>
+
+                        {tenantData && (
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                                
+                                {/* Left side: Branding identity and card rates */}
+                                <div className="lg:col-span-2 space-y-6">
+                                    
+                                    {/* Visual branding form */}
+                                    <div className="bg-zinc-900 border border-white/5 rounded-[2rem] p-6 shadow-xl space-y-4">
+                                        <h3 className="font-headline font-black text-sm uppercase text-white pb-3 border-b border-white/5">Identidade Visual da Página</h3>
+                                        
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Nome Comercial</label>
+                                                <input 
+                                                    type="text"
+                                                    value={tenantData.name}
+                                                    onChange={(e) => setTenantData({ ...tenantData, name: e.target.value })}
+                                                    className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Identificador Slug (URL)</label>
+                                                <input 
+                                                    type="text"
+                                                    value={tenantData.slug}
+                                                    disabled={true}
+                                                    className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white opacity-50"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Frase da Barra Superior</label>
+                                            <input 
+                                                type="text"
+                                                value={tenantData.phrase || ''}
+                                                onChange={(e) => setTenantData({ ...tenantData, phrase: e.target.value })}
+                                                className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Texto da Logo (Iniciais)</label>
+                                                <input 
+                                                    type="text"
+                                                    maxLength="3"
+                                                    value={tenantData.logo_text || ''}
+                                                    onChange={(e) => setTenantData({ ...tenantData, logo_text: e.target.value.toUpperCase() })}
+                                                    className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Foto da Logo</label>
+                                                <div className="flex items-center gap-3">
+                                                    <label className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl flex items-center justify-center cursor-pointer transition-all text-xs font-bold uppercase tracking-wider">
+                                                        Carregar Foto
+                                                        <input 
+                                                            type="file"
+                                                            accept="image/*"
+                                                            className="hidden"
+                                                            onChange={(e) => {
+                                                                const file = e.target.files[0];
+                                                                if (file) {
+                                                                    const reader = new FileReader();
+                                                                    reader.onload = (evt) => {
+                                                                        setTenantData({ ...tenantData, logo_image: evt.target.result });
+                                                                    };
+                                                                    reader.readAsDataURL(file);
+                                                                }
+                                                            }}
+                                                        />
+                                                    </label>
+                                                    {tenantData.logo_image && (
+                                                        <button 
+                                                            onClick={() => setTenantData({ ...tenantData, logo_image: '' })}
+                                                            className="h-11 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs uppercase font-bold"
+                                                        >
+                                                            Remover
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Structure Type Select */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-white/5">
+                                            <div className="space-y-1">
+                                                <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block mb-1">Estrutura da Empresa</label>
+                                                <select 
+                                                    value={tenantData.structure_type || 'individual'}
+                                                    onChange={(e) => setTenantData({ ...tenantData, structure_type: e.target.value })}
+                                                    className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                                >
+                                                    <option value="individual">Lojista Individual / Único</option>
+                                                    <option value="group">Grupo Corporativo / Franquia (Multi-Lojistas)</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1 flex flex-col justify-end">
+                                                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wide leading-tight">
+                                                    {tenantData.structure_type === 'group' 
+                                                        ? 'Permite cadastrar múltiplos lojistas (operadores) que acessam de forma individual.' 
+                                                        : 'Apenas uma conta principal de acesso para a calculadora.'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* WhatsApp Properties */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-white/5">
+                                            <div className="space-y-1">
+                                                <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Número de Suporte WhatsApp</label>
+                                                <input 
+                                                    type="text"
+                                                    value={tenantData.whatsapp_number || ''}
+                                                    onChange={(e) => setTenantData({ ...tenantData, whatsapp_number: e.target.value.replace(/\D/g, '') })}
+                                                    className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Mensagem Padrão do WhatsApp</label>
+                                                <input 
+                                                    type="text"
+                                                    value={tenantData.whatsapp_message || ''}
+                                                    onChange={(e) => setTenantData({ ...tenantData, whatsapp_message: e.target.value })}
+                                                    className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Card Rates Configuration */}
+                                    <div className="bg-zinc-900 border border-white/5 rounded-[2rem] p-6 shadow-xl space-y-4">
+                                        <div className="flex justify-between items-center pb-3 border-b border-white/5 mb-2">
+                                            <div>
+                                                <h3 className="font-headline font-black text-sm uppercase text-white">Taxas das Bandeiras</h3>
+                                                <span className="text-[9px] text-zinc-500 uppercase font-black tracking-wider">Configure os juros aplicados nas transações</span>
+                                            </div>
+                                            <button 
+                                                onClick={addColumn}
+                                                className="h-8 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] uppercase font-black tracking-widest transition-all"
+                                            >
+                                                Adicionar Bandeira
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {tenantData.cards_data && tenantData.cards_data.map((card, cIdx) => (
+                                                <div key={cIdx} className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between space-y-4">
+                                                    <div className="flex justify-between items-center">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: card.color || '#666' }} />
+                                                            <span className="font-headline font-black text-xs text-white uppercase">{card.name}</span>
+                                                        </div>
+                                                        <span className="text-[8px] font-black text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full uppercase">Max {card.maxParc}x</span>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-zinc-400">
+                                                        <div className="bg-white/5 p-2 rounded-lg flex justify-between">
+                                                            <span>PIX:</span>
+                                                            <span className="font-black text-emerald-400">{card.pixRate || 0}%</span>
+                                                        </div>
+                                                        <div className="bg-white/5 p-2 rounded-lg flex justify-between">
+                                                            <span>DEB:</span>
+                                                            <span className="font-black text-zinc-300">{card.debitRate || 0}%</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex gap-2">
+                                                        <button 
+                                                            onClick={() => openSettings(cIdx)}
+                                                            className="flex-1 h-8 bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-400 border border-white/10 rounded-lg text-[9px] uppercase font-black tracking-widest transition-all"
+                                                        >
+                                                            Editar Taxas
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => {
+                                                                const updated = [...tenantData.cards_data];
+                                                                updated.splice(cIdx, 1);
+                                                                setTenantData({ ...tenantData, cards_data: updated });
+                                                            }}
+                                                            className="h-8 w-8 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg flex items-center justify-center transition-all"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="pt-4 border-t border-white/5 flex justify-end">
+                                            <button 
+                                                onClick={handleSaveTenantChanges}
+                                                disabled={isSavingTenant}
+                                                className="w-full sm:w-auto h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs uppercase font-black tracking-widest transition-all shadow-lg font-bold flex items-center justify-center gap-2"
+                                            >
+                                                {isSavingTenant ? "Gravando no Banco..." : "Salvar Configurações e Taxas"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right side: Visitor leads and Operators lists */}
+                                <div className="space-y-6 flex flex-col w-full">
+                                    
+                                    {/* Card 1: Leads de Visitantes */}
+                                    <div className="bg-zinc-900 border border-white/5 rounded-[2rem] p-6 shadow-xl flex flex-col max-h-[350px]">
+                                        <div className="flex justify-between items-center pb-3 border-b border-white/5 mb-4">
+                                            <div>
+                                                <h3 className="font-headline font-black text-sm uppercase text-white">Leads de Visitantes</h3>
+                                                <span className="text-[9px] text-zinc-500 uppercase font-black tracking-wider">{tenantVisitors.length} visitantes</span>
+                                            </div>
+                                            <button 
+                                                onClick={handleExportLeads}
+                                                className="h-8 px-3 bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-400 border border-white/10 rounded-lg text-[9px] uppercase font-black tracking-widest transition-all"
+                                            >
+                                                Exportar
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+                                            {tenantVisitors.map(v => {
+                                                const date = new Date(v.visited_at).toLocaleString('pt-BR');
+                                                return (
+                                                    <div key={v.id} className="bg-black/30 border border-white/5 p-3 rounded-xl space-y-1">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="font-black text-xs text-white uppercase tracking-tight">{v.name}</span>
+                                                            <span className="text-[7.5px] font-mono text-zinc-500">{date}</span>
+                                                        </div>
+                                                        <a 
+                                                            href={`https://wa.me/${v.phone}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-[10px] font-mono text-emerald-400 hover:underline flex items-center gap-1"
+                                                        >
+                                                            <WhatsAppIcon className="h-3 w-3 inline fill-current" />
+                                                            {v.phone}
+                                                        </a>
+                                                    </div>
+                                                );
+                                            })}
+                                            {tenantVisitors.length === 0 && (
+                                                <div className="text-center py-12 text-xs font-black text-zinc-500 uppercase tracking-widest">Nenhum visitante registrou acesso.</div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Card 2: Lojistas (Group Structure Only) */}
+                                    {tenantData.structure_type === 'group' && (
+                                        <div className="bg-zinc-900 border border-white/5 rounded-[2rem] p-6 shadow-xl flex flex-col max-h-[350px]">
+                                            <div className="flex justify-between items-center pb-3 border-b border-white/5 mb-4">
+                                                <div>
+                                                    <h3 className="font-headline font-black text-sm uppercase text-white">Lojistas / Operadores</h3>
+                                                    <span className="text-[9px] text-zinc-500 uppercase font-black tracking-wider">{tenantOperatorsList.length} cadastrados</span>
+                                                </div>
+                                                <button 
+                                                    onClick={() => setIsCreateOperatorOpen(true)}
+                                                    className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[9px] uppercase font-black tracking-widest transition-all font-bold"
+                                                >
+                                                    + Novo
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+                                                {tenantOperatorsList.map(op => (
+                                                    <div key={op.id} className="bg-black/30 border border-white/5 p-3 rounded-xl flex justify-between items-center">
+                                                        <div className="space-y-0.5">
+                                                            <div className="font-black text-xs text-white uppercase tracking-tight">{op.name}</div>
+                                                            <div className="text-[9px] font-mono text-zinc-400">Senha: {op.phone}</div>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => handleDeleteOperator(op.id)}
+                                                            className="h-7 w-7 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg flex items-center justify-center transition-all text-xs"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                                {tenantOperatorsList.length === 0 && (
+                                                    <div className="text-center py-12 text-xs font-black text-zinc-500 uppercase tracking-widest">Nenhum lojista cadastrado.</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Card 3: Connections History (Group Structure Only) */}
+                                    {tenantData.structure_type === 'group' && (
+                                        <div className="bg-zinc-900 border border-white/5 rounded-[2rem] p-6 shadow-xl flex flex-col max-h-[350px]">
+                                            <div className="pb-3 border-b border-white/5 mb-4">
+                                                <h3 className="font-headline font-black text-sm uppercase text-white">Conexões de Lojistas</h3>
+                                            </div>
+                                            <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+                                                {tenantOperatorsHistoryList.map(log => {
+                                                    const name = log.profiles?.name || 'Desconhecido';
+                                                    const date = new Date(log.logged_in_at).toLocaleString('pt-BR');
+                                                    return (
+                                                        <div key={log.id} className="bg-black/30 border border-white/5 p-3 rounded-xl flex flex-col gap-1">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="font-bold text-xs text-white uppercase">{name}</span>
+                                                                <span className="text-[7.5px] font-mono text-zinc-500">{date}</span>
+                                                            </div>
+                                                            <span className="text-[9px] font-mono text-zinc-400">Acessou a calculadora</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                                {tenantOperatorsHistoryList.length === 0 && (
+                                                    <div className="text-center py-12 text-xs font-black text-zinc-500 uppercase tracking-widest">Nenhum acesso registrado.</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Modal para criar lojista/operador */}
+                    {isCreateOperatorOpen && (
+                        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
+                            <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-[2rem] p-6 shadow-2xl space-y-6">
+                                <div className="flex justify-between items-center pb-3 border-b border-white/5">
+                                    <h4 className="font-headline font-black text-sm uppercase text-white">Cadastrar Lojista / Operador</h4>
+                                    <button onClick={() => setIsCreateOperatorOpen(false)} className="text-zinc-500 hover:text-white text-xs font-bold">✕</button>
+                                </div>
+                                <form onSubmit={handleCreateOperator} className="space-y-4">
+                                    <div className="space-y-1">
+                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Nome do Lojista</label>
+                                        <input 
+                                            type="text"
+                                            required
+                                            value={newOperatorName}
+                                            onChange={(e) => setNewOperatorName(e.target.value)}
+                                            className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                            placeholder="Ex: Loja Centro"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Senha de Acesso</label>
+                                        <input 
+                                            type="text"
+                                            required
+                                            value={newOperatorPhone}
+                                            onChange={(e) => setNewOperatorPhone(e.target.value)}
+                                            className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                            placeholder="Ex: Senha123"
+                                        />
+                                    </div>
+                                    <button type="submit" className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs uppercase font-black tracking-widest font-bold transition-all">
+                                        Cadastrar Lojista
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Modal para Editar Taxas */}
+                    {editingIdx !== null && modalData && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
+                            <div className="w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[2rem] p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+                                <div className="flex justify-between items-center pb-3 border-b border-white/5 mb-4 shrink-0">
+                                    <h4 className="font-headline font-black text-sm uppercase text-white">Editar Bandeira e Taxas</h4>
+                                    <button onClick={() => { setEditingIdx(null); setModalData(null); }} className="text-zinc-500 hover:text-white text-xs font-bold">✕</button>
+                                </div>
+
+                                <div className="space-y-4 overflow-y-auto flex-1 pr-1 pb-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Nome da Bandeira</label>
+                                            <input 
+                                                type="text"
+                                                value={modalData.name}
+                                                onChange={(e) => setModalData({ ...modalData, name: e.target.value })}
+                                                className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Parcelas Máximas</label>
+                                            <select 
+                                                value={modalData.maxParc}
+                                                onChange={(e) => setModalData({ ...modalData, maxParc: parseInt(e.target.value) })}
+                                                className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                            >
+                                                {[1,2,3,4,5,6,7,8,9,10,11,12,18,21,24].map(num => (
+                                                    <option key={num} value={num}>{num}x</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Cor da Bandeira (Hex)</label>
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="color"
+                                                value={modalData.color}
+                                                onChange={(e) => setModalData({ ...modalData, color: e.target.value })}
+                                                className="w-12 h-11 bg-transparent border-0 rounded-xl cursor-pointer"
+                                            />
+                                            <input 
+                                                type="text"
+                                                value={modalData.color}
+                                                onChange={(e) => setModalData({ ...modalData, color: e.target.value })}
+                                                className="flex-1 h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-mono text-white focus:outline-none focus:border-emerald-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t border-white/5 pt-4">
+                                        <div className="flex justify-between items-center pb-2">
+                                            <span className="text-[10px] text-zinc-400 uppercase font-black tracking-widest">Tabela de Taxas (%)</span>
+                                            <button onClick={restoreCurrentDefault} className="text-[9px] text-zinc-500 hover:text-emerald-400 font-bold uppercase tracking-widest transition-colors">
+                                                Restaurar padrão
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
+                                            {modalRates.map((item, idx) => {
+                                                const isString = typeof item.installment === 'string';
+                                                if (!isString && item.installment > modalData.maxParc) return null;
+                                                return (
+                                                    <div key={idx} className="bg-black/30 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                                                        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">{item.installment}</span>
+                                                        <div className="relative">
+                                                            <input 
+                                                                type="text"
+                                                                value={item.percentStr}
+                                                                onChange={(e) => handlePercentChange(idx, e.target.value)}
+                                                                className="w-full h-9 bg-black/20 border border-white/5 rounded-lg px-2 text-xs font-mono text-white text-right pr-6 focus:outline-none focus:border-emerald-500"
+                                                            />
+                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 font-mono">%</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 border-t border-white/5 shrink-0 flex gap-3">
+                                    <button onClick={deleteCurrent} className="h-11 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs uppercase font-black tracking-wider transition-all">Excluir</button>
+                                    <button onClick={() => { setEditingIdx(null); setModalData(null); }} className="flex-1 h-11 bg-white/5 border border-white/10 rounded-xl text-xs uppercase font-black text-zinc-400 transition-all">Cancelar</button>
+                                    <button onClick={saveCurrent} className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs uppercase font-black transition-all font-bold">Confirmar</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <DevFooter />
+                </div>
+            );
+        }
+
+        const rootEl = document.getElementById('root');
+        const root = ReactDOM.createRoot(rootEl);
+        root.render(<App />);
+    </script>
+</body>
+</html>

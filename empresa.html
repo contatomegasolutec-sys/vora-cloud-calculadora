@@ -191,7 +191,7 @@
         };
 
         // Developer Footer Component
-        const DevFooter = () => (
+        const DevFooter = ({ tenant }) => (
             <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-3 py-6 mt-auto border-t border-white/5 shrink-0">
                 <a
                     href="https://voracloud.com.br"
@@ -203,7 +203,7 @@
                 </a>
                 <span className="hidden sm:inline text-zinc-800">|</span>
                 <a
-                    href="https://wa.me/5562994049949?text=ol%C3%A1%20preciso%20de%20suporte%20para%20a%20calculadora"
+                    href={tenant && tenant.whatsapp_number ? `https://wa.me/${tenant.whatsapp_number}?text=${encodeURIComponent(tenant.whatsapp_message || 'Olá, preciso de suporte para a calculadora')}` : "https://wa.me/5562994049949?text=ol%C3%A1%20preciso%20de%20suporte%20para%20a%20calculadora"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-emerald-400 font-bold uppercase tracking-widest transition-colors"
@@ -345,8 +345,17 @@
             });
             const [supabase, setSupabase] = useState(null);
             const [user, setUser] = useState(() => {
-                const saved = sessionStorage.getItem('vora_user');
+                const saved = sessionStorage.getItem('vora_tenant_visitor');
                 return saved ? JSON.parse(saved) : null;
+            });
+
+            // Tenant/Corporate States
+            const [tenant, setTenant] = useState(null);
+            const [tenantLoading, setTenantLoading] = useState(true);
+            const [tenantError, setTenantError] = useState('');
+            const [tenantSlug] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                return params.get('id') || params.get('slug') || 'gynstore';
             });
 
             // Login Form inputs
@@ -498,52 +507,87 @@
                 }
             }, [supabaseConfig]);
 
-            // Sincronizar configurações do usuário com o Supabase
-            const syncUserSettings = async (updatedData = data, updatedBrandName = brandName, updatedBrandLogoText = brandLogoText, updatedBrandLogoImage = brandLogoImage, updatedCopySettings = copySettings) => {
-                if (!supabase || !user) return;
-                try {
-                    const { error } = await supabase
-                        .from('user_settings')
-                        .upsert({
-                            user_id: user.id,
-                            brand_name: updatedBrandName,
-                            brand_logo_text: updatedBrandLogoText,
-                            brand_logo_image: updatedBrandLogoImage,
-                            copy_settings: updatedCopySettings,
-                            cards_data: updatedData,
-                            updated_at: new Date().toISOString()
-                        });
-                    if (error) console.error('Erro ao sincronizar com o Supabase:', error);
-                } catch (err) {
-                    console.error('Erro na requisição Supabase:', err);
-                }
-            };
+            // Sincronizar configurações do usuário com o Supabase (Desativado em modo visitante)
+            const syncUserSettings = () => {};
 
-            // Carregar configurações do banco de dados quando logado
+            // Carregar configurações do Tenant dinamicamente
             useEffect(() => {
-                const loadRemoteSettings = async () => {
-                    if (!supabase || !user) return;
+                const fetchTenant = async () => {
+                    if (!supabase) return;
+                    setTenantLoading(true);
                     try {
-                        const { data: settings, error } = await supabase
-                            .from('user_settings')
+                        const { data: tenantData, error } = await supabase
+                            .from('tenants')
                             .select('*')
-                            .eq('user_id', user.id)
+                            .eq('slug', tenantSlug)
                             .maybeSingle();
 
-                        if (!error && settings) {
-                            if (settings.brand_name) setBrandName(settings.brand_name);
-                            if (settings.brand_logo_text) setBrandLogoText(settings.brand_logo_text);
-                            if (settings.brand_logo_image) setBrandLogoImage(settings.brand_logo_image);
-                            if (settings.copy_settings) setCopySettings(settings.copy_settings);
-                            if (settings.cards_data) setData(settings.cards_data);
+                        if (error) throw error;
+                        if (!tenantData) {
+                            setTenantError(`Empresa "${tenantSlug}" não encontrada.`);
+                            return;
+                        }
+
+                        setTenant(tenantData);
+                        setBrandName(tenantData.name);
+                        setBrandLogoText(tenantData.logo_text || 'T');
+                        setBrandLogoImage(tenantData.logo_image || '');
+                        setBrandPhrase(tenantData.phrase || '');
+                        
+                        if (tenantData.cards_data) {
+                            setData(tenantData.cards_data.map((col) => {
+                                if (!col.maxParc) col.maxParc = col.rates?.length || 12;
+                                if (col.debitRate === undefined) col.debitRate = 0;
+                                if (col.pixRate === undefined) col.pixRate = 0;
+                                const rates = [...(col.rates || [])];
+                                while (rates.length < 24) rates.push(0);
+                                return { ...col, debitRate: col.debitRate, pixRate: col.pixRate, rates };
+                            }));
                         }
                     } catch (e) {
-                        console.error("Erro ao carregar configurações do Supabase:", e);
+                        console.error("Erro ao carregar tenant:", e);
+                        setTenantError("Erro ao carregar configurações da empresa: " + e.message);
+                    } finally {
+                        setTenantLoading(false);
                     }
                 };
 
-                loadRemoteSettings();
-            }, [supabase, user]);
+                fetchTenant();
+            }, [supabase, tenantSlug]);
+
+            // Atualizar Manifest PWA dinamicamente
+            useEffect(() => {
+                if (tenant) {
+                    try {
+                        const myDynamicManifest = {
+                            name: `Calculadora ${tenant.name}`,
+                            short_name: tenant.name,
+                            description: tenant.phrase || `Calculadora de Taxas ${tenant.name}`,
+                            start_url: window.location.href,
+                            display: "standalone",
+                            background_color: "#09090b",
+                            theme_color: "#059669",
+                            icons: [
+                                { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+                                { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+                            ]
+                        };
+                        const stringManifest = JSON.stringify(myDynamicManifest);
+                        const blob = new Blob([stringManifest], {type: 'application/json'});
+                        const manifestURL = URL.createObjectURL(blob);
+                        
+                        let manifestEl = document.querySelector('link[rel="manifest"]');
+                        if (!manifestEl) {
+                            manifestEl = document.createElement('link');
+                            manifestEl.setAttribute('rel', 'manifest');
+                            document.head.appendChild(manifestEl);
+                        }
+                        manifestEl.setAttribute('href', manifestURL);
+                    } catch (e) {
+                        console.error("Erro ao atualizar manifest:", e);
+                    }
+                }
+            }, [tenant]);
 
             const handleLogin = async (e) => {
                 if (e) e.preventDefault();
@@ -562,88 +606,75 @@
                 try {
                     const cleanPhone = loginPhone.replace(/\D/g, '');
                     
-                    // Buscar perfil pelo telefone
-                    let { data: profile, error } = await supabase
+                    // 1. Cadastrar/Buscar no profiles geral do sistema gestor (para centralizar todos os leads no banco principal)
+                    let { data: profile, error: profileError } = await supabase
                         .from('profiles')
                         .select('*')
                         .eq('phone', cleanPhone)
                         .maybeSingle();
 
-                    if (error) throw error;
+                    if (profileError) throw profileError;
 
                     if (!profile) {
-                        // Se não existe, cadastrar novo usuário
-                        const { data: newProfile, error: insertError } = await supabase
+                        const { data: newProfile, error: createError } = await supabase
                             .from('profiles')
-                            .insert({
-                                name: loginName.trim(),
-                                phone: cleanPhone,
-                                is_manager: false
-                            })
+                            .insert({ phone: cleanPhone, name: loginName.trim() })
                             .select()
                             .single();
-
-                        if (insertError) throw insertError;
+                        if (createError) throw createError;
                         profile = newProfile;
-
-                        // Criar configurações padrão
-                        const { error: settingsError } = await supabase
-                            .from('user_settings')
-                            .insert({
-                                user_id: profile.id,
-                                brand_name: 'VORA CLOUD',
-                                brand_logo_text: 'V',
-                                brand_logo_image: '',
-                                copy_settings: copySettings,
-                                cards_data: getInitialDefaults()
-                            });
-
-                        if (settingsError) console.error("Erro ao criar configurações padrão:", settingsError);
                     }
 
-                    // Registrar conexão no histórico
+                    // Registrar no histórico geral de conexões
                     await supabase
                         .from('connection_history')
                         .insert({ user_id: profile.id });
 
-                    // Salvar usuário na sessão
-                    sessionStorage.setItem('vora_user', JSON.stringify(profile));
-                    setUser(profile);
-
-                    // Carregar configurações do usuário
-                    const { data: settings, error: fetchSettingsError } = await supabase
-                        .from('user_settings')
-                        .select('*')
-                        .eq('user_id', profile.id)
-                        .maybeSingle();
-
-                    if (!fetchSettingsError && settings) {
-                        if (settings.brand_name) setBrandName(settings.brand_name);
-                        if (settings.brand_logo_text) setBrandLogoText(settings.brand_logo_text);
-                        if (settings.brand_logo_image) setBrandLogoImage(settings.brand_logo_image);
-                        if (settings.copy_settings) setCopySettings(settings.copy_settings);
-                        if (settings.cards_data) setData(settings.cards_data);
+                    // 2. Registrar na tabela específica de visitantes/leads da empresa parceira
+                    if (tenant) {
+                        const { error: insertError } = await supabase
+                            .from('tenant_visitors')
+                            .insert({
+                                tenant_id: tenant.id,
+                                name: loginName.trim(),
+                                phone: cleanPhone
+                            });
+                        if (insertError) throw insertError;
                     }
 
-                    setIsManagerView(false);
+                    const visitorProfile = {
+                        id: profile.id,
+                        name: loginName.trim(),
+                        phone: cleanPhone,
+                        is_visitor: true
+                    };
+
+                    sessionStorage.setItem('vora_tenant_visitor', JSON.stringify(visitorProfile));
+                    setUser(visitorProfile);
 
                 } catch (err) {
                     console.error("Erro de autenticação:", err);
-                    setAuthError("Falha na autenticação: " + err.message);
+                    setAuthError("Falha no login: " + err.message);
                 } finally {
                     setAuthLoading(false);
                 }
             };
 
             const handleLogout = () => {
-                sessionStorage.removeItem('vora_user');
+                sessionStorage.removeItem('vora_tenant_visitor');
                 setUser(null);
                 setIsManagerView(false);
-                // Resetar estados para padrão local
-                setData(getInitialDefaults());
-                setBrandName('VORA CLOUD');
-                setBrandLogoText('V');
-                setBrandLogoImage('');
+                if (tenant) {
+                    setData(tenant.cards_data || getInitialDefaults());
+                    setBrandName(tenant.name);
+                    setBrandLogoText(tenant.logo_text || 'T');
+                    setBrandLogoImage(tenant.logo_image || '');
+                } else {
+                    setData(getInitialDefaults());
+                    setBrandName('VORA CLOUD');
+                    setBrandLogoText('V');
+                    setBrandLogoImage('');
+                }
             };
 
             // Funções de gestor removidas desta calculadora
@@ -1167,8 +1198,12 @@
                             <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-700/5 rounded-full blur-3xl -z-10" />
                             
                             <div className="text-center space-y-2">
-                                <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center shadow-xl overflow-hidden bg-zinc-900 border border-white/10">
-                                    <img src="icon-192.png" alt="Logo" className="w-full h-full object-cover" />
+                                <div className="mx-auto bg-[#004d1a] h-16 w-16 rounded-2xl flex items-center justify-center font-headline font-black text-white italic text-2xl shadow-xl overflow-hidden">
+                                    {brandLogoImage ? (
+                                        <img src={brandLogoImage} alt="Logo" className="w-full h-full object-cover" />
+                                    ) : (
+                                        brandLogoText || 'V'
+                                    )}
                                 </div>
                                 <h2 className="font-headline font-black uppercase tracking-tight text-white text-xl md:text-2xl pt-2">{brandName || 'VORA CLOUD'}</h2>
                                 <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">{brandPhrase || 'Calculadora de Taxas Inteligentes'}</p>
@@ -1245,7 +1280,7 @@
                                 </form>
                             )}
                         </div>
-                        <DevFooter />
+                        <DevFooter tenant={tenant} />
                     </div>
                 );
             }
@@ -1257,8 +1292,12 @@
                     {/* Vora Branding Header */}
                     <div className="flex justify-between items-center shrink-0 pb-2 border-b border-white/5">
                         <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden border border-white/10 bg-zinc-900">
-                                <img src="icon-192.png" alt="Logo" className="w-full h-full object-cover" />
+                            <div className="bg-[#004d1a] h-10 w-10 rounded-xl flex items-center justify-center font-headline font-black text-white italic text-lg shadow-lg overflow-hidden uppercase">
+                                {brandLogoImage ? (
+                                    <img src={brandLogoImage} alt="Logo" className="w-full h-full object-cover" />
+                                ) : (
+                                    brandLogoText
+                                )}
                             </div>
                             <div>
                                 <h1 className="font-headline font-extrabold uppercase tracking-tight text-white text-base">{brandName}</h1>
@@ -2212,7 +2251,7 @@
                         </div>
                     )}
 
-                    <DevFooter />
+                    <DevFooter tenant={tenant} />
                     <ScrollTopButton />
                 </div>
             );
