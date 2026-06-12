@@ -155,12 +155,43 @@
             };
 
             const [activeSlug] = useState(getTenantSlug);
-            const [activeTenant, setActiveTenant] = useState(null);
-            const [loadingTenant, setLoadingTenant] = useState(true);
+            const [activeTenant, setActiveTenant] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    return {
+                        id: 'mock-tenant-id',
+                        slug: getTenantSlug() || 'gynstore',
+                        name: 'Mock GYN STORE',
+                        logo_text: 'G',
+                        phrase: 'Calculadora GYN Store (Simulação)',
+                        whatsapp_number: '5562994049949',
+                        whatsapp_message: 'Olá!',
+                        structure_type: 'group',
+                        cards_data: [
+                            { name: 'VISA', color: '#0d47a1', maxParc: 12, pixRate: 0.99, debitRate: 1.99, rates: [2.50, 3.68, 4.53, 5.38, 6.23, 7.08, 8.23, 9.08, 9.93, 10.78, 11.63, 12.48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+                            { name: 'MasterCard', color: '#f57f17', maxParc: 12, pixRate: 0.99, debitRate: 1.99, rates: [2.50, 3.68, 4.53, 5.38, 6.23, 7.08, 8.23, 9.08, 9.93, 10.78, 11.63, 12.48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+                        ]
+                    };
+                }
+                return null;
+            });
+            const [loadingTenant, setLoadingTenant] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                return params.get('mock') === 'true' ? false : true;
+            });
             const [tenantError, setTenantError] = useState('');
 
             // Auth State
             const [user, setUser] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    return {
+                        id: 'mock-admin-id',
+                        name: 'fabio',
+                        is_manager: true,
+                        tenant_slug: getTenantSlug() || 'gynstore'
+                    };
+                }
                 const saved = sessionStorage.getItem('vora_tenant_user');
                 const parsed = saved ? JSON.parse(saved) : null;
                 // Double check if the loaded session belongs to the current URL slug
@@ -177,10 +208,54 @@
             const [authLoading, setAuthLoading] = useState(false);
 
             // Tenant Config dashboard state
-            const [tenantData, setTenantData] = useState(null);
-            const [tenantVisitors, setTenantVisitors] = useState([]);
-            const [tenantOperatorsList, setTenantOperatorsList] = useState([]);
-            const [tenantOperatorsHistoryList, setTenantOperatorsHistoryList] = useState([]);
+            const [tenantData, setTenantData] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    return {
+                        id: 'mock-tenant-id',
+                        slug: getTenantSlug() || 'gynstore',
+                        name: 'Mock GYN STORE',
+                        logo_text: 'G',
+                        phrase: 'Calculadora GYN Store (Simulação)',
+                        whatsapp_number: '5562994049949',
+                        whatsapp_message: 'Olá!',
+                        structure_type: 'group',
+                        cards_data: [
+                            { name: 'VISA', color: '#0d47a1', maxParc: 12, pixRate: 0.99, debitRate: 1.99, rates: [2.50, 3.68, 4.53, 5.38, 6.23, 7.08, 8.23, 9.08, 9.93, 10.78, 11.63, 12.48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+                            { name: 'MasterCard', color: '#f57f17', maxParc: 12, pixRate: 0.99, debitRate: 1.99, rates: [2.50, 3.68, 4.53, 5.38, 6.23, 7.08, 8.23, 9.08, 9.93, 10.78, 11.63, 12.48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }
+                        ]
+                    };
+                }
+                return null;
+            });
+            const [tenantVisitors, setTenantVisitors] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    return [
+                        { id: '1', name: 'Marcos Silva', phone: '11988888888', created_at: new Date(Date.now() - 3600000 * 2).toISOString() },
+                        { id: '2', name: 'Ana Souza', phone: '21977777777', created_at: new Date(Date.now() - 3600000 * 5).toISOString() }
+                    ];
+                }
+                return [];
+            });
+            const [tenantOperatorsList, setTenantOperatorsList] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    return [
+                        { id: '1', name: 'Lojista Carlos', phone: '11911111111', created_at: new Date(Date.now() - 86400000 * 3).toISOString() }
+                    ];
+                }
+                return [];
+            });
+            const [tenantOperatorsHistoryList, setTenantOperatorsHistoryList] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    return [
+                        { id: '1', name: 'Lojista Carlos', phone: '11911111111', logged_in_at: new Date(Date.now() - 3600000).toISOString() }
+                    ];
+                }
+                return [];
+            });
             const [dbWarning, setDbWarning] = useState(false);
             const [isSavingTenant, setIsSavingTenant] = useState(false);
 
@@ -206,6 +281,9 @@
 
             // Fetch tenant details on load
             useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') return;
+
                 const fetchTenant = async () => {
                     if (!supabase || !activeSlug) {
                         if (!activeSlug) {
@@ -241,6 +319,8 @@
 
             // Load dashboard data if logged in
             const fetchDashboardData = async () => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') return;
                 if (!supabase || !activeTenant || !user) return;
                 try {
                     // 1. Visitors / Leads
@@ -373,6 +453,16 @@
 
             // Save visual identity and rates
             const handleSaveTenantChanges = async () => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    setIsSavingTenant(true);
+                    setTimeout(() => {
+                        setIsSavingTenant(false);
+                        alert("Configurações e taxas salvas com sucesso (Simulado no Modo Mock)!");
+                    }, 500);
+                    return;
+                }
+
                 if (!supabase || !tenantData) return;
                 setIsSavingTenant(true);
                 try {
@@ -404,6 +494,25 @@
             // Operator CRUD
             const handleCreateOperator = async (e) => {
                 e.preventDefault();
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    if (!newOperatorName.trim() || !newOperatorPhone.trim()) return;
+                    const cleanPhone = newOperatorPhone.trim().replace(/\D/g, '');
+                    const phoneVal = cleanPhone || newOperatorPhone.trim();
+                    const newOp = {
+                        id: String(Date.now()),
+                        name: newOperatorName.trim(),
+                        phone: phoneVal,
+                        created_at: new Date().toISOString()
+                    };
+                    setTenantOperatorsList([newOp, ...tenantOperatorsList]);
+                    setNewOperatorName('');
+                    setNewOperatorPhone('');
+                    setIsCreateOperatorOpen(false);
+                    alert(`Lojista "${newOperatorName}" cadastrado com sucesso (Simulado)!`);
+                    return;
+                }
+
                 if (!supabase || !activeTenant || !newOperatorName.trim() || !newOperatorPhone.trim()) return;
 
                 try {
@@ -432,8 +541,16 @@
             };
 
             const handleDeleteOperator = async (operatorId) => {
-                if (!supabase) return;
                 if (!confirm("Tem certeza de que deseja remover este operador da empresa?")) return;
+
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    setTenantOperatorsList(tenantOperatorsList.filter(op => op.id !== operatorId));
+                    alert("Lojista removido com sucesso (Simulado)!");
+                    return;
+                }
+
+                if (!supabase) return;
 
                 try {
                     const { error } = await supabase
