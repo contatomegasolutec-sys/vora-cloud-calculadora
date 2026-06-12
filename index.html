@@ -1550,8 +1550,8 @@
                         onMouseMove={handleMouseMove}
                         onScroll={handleBottomScroll}
                         className={isMultipleMode 
-                            ? `flex-1 flex flex-row flex-nowrap items-start justify-start gap-6 py-2 overflow-x-auto scrollbar-visible w-full pb-4 ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`
-                            : `flex-1 flex flex-col items-center gap-6 py-2 w-full lg:flex-row lg:flex-nowrap lg:items-start lg:justify-start lg:overflow-x-auto lg:scrollbar-visible lg:pb-4 ${isDragging ? 'lg:cursor-grabbing lg:select-none' : 'lg:cursor-grab'}`
+                            ? `flex-1 flex flex-row flex-nowrap items-start justify-start gap-6 py-2 overflow-x-auto scrollbar-visible w-full max-w-full min-w-0 pb-4 ${isDragging ? 'cursor-grabbing select-none' : 'cursor-grab'}`
+                            : `flex-1 flex flex-col items-center gap-6 py-2 w-full max-w-full min-w-0 lg:flex-row lg:flex-nowrap lg:items-start lg:justify-start lg:overflow-x-auto lg:scrollbar-visible lg:pb-4 ${isDragging ? 'lg:cursor-grabbing lg:select-none' : 'lg:cursor-grab'}`
                         }
                     >
                         {!isMultipleMode ? (
