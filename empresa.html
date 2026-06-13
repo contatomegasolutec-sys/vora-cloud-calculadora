@@ -624,6 +624,23 @@
 
             const handleLogin = async (e) => {
                 if (e) e.preventDefault();
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    if (!loginName.trim() || !loginPhone.trim()) {
+                        setAuthError("Preencha todos os campos.");
+                        return;
+                    }
+                    const visitorProfile = {
+                        id: 'mock-visitor-id',
+                        name: loginName.trim(),
+                        phone: loginPhone.replace(/\D/g, ''),
+                        is_visitor: true
+                    };
+                    sessionStorage.setItem('vora_tenant_visitor', JSON.stringify(visitorProfile));
+                    setUser(visitorProfile);
+                    return;
+                }
+
                 if (!supabase) {
                     setAuthError("Configure a conexão do Supabase primeiro.");
                     return;
