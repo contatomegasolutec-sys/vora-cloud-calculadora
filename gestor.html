@@ -194,6 +194,7 @@
             // Global manager state (original)
             const [profilesList, setProfilesList] = useState([]);
             const [historyList, setHistoryList] = useState([]);
+            const [allHistoryList, setAllHistoryList] = useState([]);
             const [selectedProfileRates, setSelectedProfileRates] = useState(null);
             const [managerSearch, setManagerSearch] = useState('');
 
@@ -267,6 +268,15 @@
 
                         if (hError) throw hError;
                         setHistoryList(history || []);
+
+                        // Carregar histórico completo para contagem e última conexão
+                        const { data: allHistory, error: ahError } = await supabase
+                            .from('connection_history')
+                            .select('user_id, logged_in_at')
+                            .order('logged_in_at', { ascending: false });
+
+                        if (ahError) throw ahError;
+                        setAllHistoryList(allHistory || []);
 
                         // Carregar empresas parceiras
                         const { data: tenants, error: tError } = await supabase
@@ -972,29 +982,35 @@
                                                         <th className="py-2 text-[9px] font-black uppercase tracking-wider text-zinc-500">Nome</th>
                                                         <th className="py-2 text-[9px] font-black uppercase tracking-wider text-zinc-500">Telefone</th>
                                                         <th className="py-2 text-[9px] font-black uppercase tracking-wider text-zinc-500 text-center">Tipo</th>
-                                                        <th className="py-2 text-[9px] font-black uppercase tracking-wider text-zinc-500 text-right">Ações</th>
+                                                        <th className="py-2 text-[9px] font-black uppercase tracking-wider text-zinc-500 text-center">Conexões</th>
+                                                        <th className="py-2 text-[9px] font-black uppercase tracking-wider text-zinc-500 text-right">Última Conexão</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-white/[0.03]">
-                                                    {profilesList.filter(p => p.name.toLowerCase().includes(managerSearch.toLowerCase()) || p.phone.includes(managerSearch)).map((profile) => (
-                                                        <tr key={profile.id} className="hover:bg-white/[0.01] transition-colors">
-                                                            <td className="py-3 font-bold text-xs text-white">{profile.name}</td>
-                                                            <td className="py-3 font-mono text-xs text-zinc-400">{profile.phone}</td>
-                                                            <td className="py-3 text-center">
-                                                                <span className={`text-[8px] font-black tracking-widest px-2 py-0.5 rounded-full ${profile.is_manager ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-400'}`}>
-                                                                    {profile.is_manager ? 'GESTOR' : 'OPERADOR'}
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-3 text-right">
-                                                                <button 
-                                                                    onClick={() => viewUserRates(profile.id)}
-                                                                    className="h-8 px-3 bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-lg text-[10px] uppercase font-black tracking-wider transition-all"
-                                                                >
-                                                                    Ver Taxas
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                    {profilesList.filter(p => p.name.toLowerCase().includes(managerSearch.toLowerCase()) || p.phone.includes(managerSearch)).map((profile) => {
+                                                        const userLogs = allHistoryList.filter(h => h.user_id === profile.id);
+                                                        const connectionsCount = userLogs.length;
+                                                        const lastLog = userLogs[0];
+                                                        const lastConnectionStr = lastLog ? new Date(lastLog.logged_in_at).toLocaleString('pt-BR') : 'Nenhuma';
+                                                        
+                                                        return (
+                                                            <tr key={profile.id} className="hover:bg-white/[0.01] transition-colors">
+                                                                <td className="py-3 font-bold text-xs text-white">{profile.name}</td>
+                                                                <td className="py-3 font-mono text-xs text-zinc-400">{profile.phone}</td>
+                                                                <td className="py-3 text-center">
+                                                                    <span className={`text-[8px] font-black tracking-widest px-2 py-0.5 rounded-full ${profile.is_manager ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-400'}`}>
+                                                                        {profile.is_manager ? 'GESTOR' : 'OPERADOR'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-3 text-center font-bold text-xs text-emerald-400">
+                                                                    {connectionsCount}
+                                                                </td>
+                                                                <td className="py-3 text-right font-mono text-xs text-zinc-400">
+                                                                    {lastConnectionStr}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>
