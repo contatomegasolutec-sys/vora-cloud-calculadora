@@ -780,12 +780,6 @@
                                         Certifique-se de que a tabela <code className="bg-black/40 px-1 py-0.5 rounded">tenants</code> existe no seu banco de dados rodando o script <code className="bg-black/40 px-1 py-0.5 rounded">setup_tenants.sql</code>.
                                     </div>
                                 )}
-                                <button
-                                    onClick={() => setIsConfiguringSupabase(true)}
-                                    className="px-6 h-12 rounded-2xl text-xs uppercase font-black tracking-widest bg-zinc-800 hover:bg-zinc-700 text-white transition-all shadow-lg active:scale-95"
-                                >
-                                    Configurar Banco Supabase
-                                </button>
                             </>
                         )}
                         <DevFooter />
@@ -896,6 +890,12 @@
                                 >
                                     Ver Calculadora
                                 </a>
+                                <button 
+                                    onClick={() => setIsConfiguringSupabase(true)} 
+                                    className="h-10 px-4 bg-white/5 hover:bg-emerald-500/10 text-zinc-400 hover:text-emerald-400 border border-white/10 hover:border-emerald-500/20 rounded-xl text-xs uppercase tracking-widest transition-all flex items-center justify-center font-bold"
+                                >
+                                    Configurar Banco
+                                </button>
                                 <button 
                                     onClick={handleLogout} 
                                     className="h-10 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs uppercase font-bold tracking-widest transition-all"
@@ -1370,6 +1370,52 @@
                                     <button onClick={() => { setEditingIdx(null); setModalData(null); }} className="flex-1 h-11 bg-white/5 border border-white/10 rounded-xl text-xs uppercase font-black text-zinc-400 transition-all">Cancelar</button>
                                     <button onClick={saveCurrent} className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs uppercase font-black transition-all font-bold">Confirmar</button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                     {/* Modal para configurar Supabase */}
+                    {isConfiguringSupabase && (
+                        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
+                            <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-[2rem] p-6 shadow-2xl space-y-6">
+                                <div className="flex justify-between items-center pb-3 border-b border-white/5">
+                                    <h4 className="font-headline font-black text-sm uppercase text-white">Configurar Banco Supabase</h4>
+                                    <button 
+                                        onClick={() => setIsConfiguringSupabase(false)}
+                                        className="text-zinc-500 hover:text-white text-xs font-bold"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                <form onSubmit={saveSupabaseConfig} className="space-y-4">
+                                    <div className="space-y-1">
+                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">URL do Projeto</label>
+                                        <input 
+                                            type="text"
+                                            required
+                                            value={configUrl}
+                                            onChange={(e) => setConfigUrl(e.target.value)}
+                                            className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Anon Key / API Key</label>
+                                        <input 
+                                            type="password"
+                                            required
+                                            value={configAnonKey}
+                                            onChange={(e) => setConfigAnonKey(e.target.value)}
+                                            className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                        />
+                                    </div>
+                                    <button 
+                                        type="submit"
+                                        className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs uppercase font-black tracking-widest transition-all font-bold"
+                                    >
+                                        Salvar Conexão
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     )}
