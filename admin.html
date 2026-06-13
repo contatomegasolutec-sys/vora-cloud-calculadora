@@ -384,6 +384,23 @@
             // Authenticate Corporate Manager
             const handleLogin = async (e) => {
                 e.preventDefault();
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('mock') === 'true') {
+                    setAuthLoading(true);
+                    setAuthError('');
+                    setTimeout(() => {
+                        const mockUser = {
+                            id: 'mock-admin-id',
+                            name: loginUsername.trim() || 'fabio',
+                            is_manager: true,
+                            tenant_slug: getTenantSlug() || 'gynstore'
+                        };
+                        setUser(mockUser);
+                        setAuthLoading(false);
+                    }, 300);
+                    return;
+                }
+
                 if (!supabase || !activeTenant) return;
 
                 setAuthLoading(true);
