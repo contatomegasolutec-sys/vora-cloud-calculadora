@@ -208,6 +208,11 @@
             const [dbWarning, setDbWarning] = useState(false);
             const [tenantOperatorsList, setTenantOperatorsList] = useState([]);
             const [tenantOperatorsHistoryList, setTenantOperatorsHistoryList] = useState([]);
+            const [isSpyingTenant, setIsSpyingTenant] = useState(false);
+            const [editingSubscriptionTenant, setEditingSubscriptionTenant] = useState(null);
+            const [subAccessType, setSubAccessType] = useState('lifetime');
+            const [subExpiresAt, setSubExpiresAt] = useState('');
+            const [allVisitorsList, setAllVisitorsList] = useState([]);
 
             // Operator creation state
             const [newOperatorName, setNewOperatorName] = useState('');
@@ -286,6 +291,13 @@
 
                         if (tError) throw tError;
                         setTenantsList(tenants || []);
+
+                        // Carregar todos os visitantes para contagem de leads
+                        const { data: allVisitors, error: avError } = await supabase
+                            .from('tenant_visitors')
+                            .select('tenant_id');
+                        if (avError) throw avError;
+                        setAllVisitorsList(allVisitors || []);
                     }
 
                     // Determinar ID da empresa ativa
@@ -389,12 +401,123 @@
                 }
             }, [supabase, user, selectedTenantId]);
 
-            // Se for gestor de tenant, force a aba tenants
-            useEffect(() => {
-                if (user && user.tenant_id !== null) {
-                    setActiveTab('tenants');
+            // Obter estatísticas agregadas do tenant para exibição na lista
+            const getTenantStats = (tenant) => {
+                const tenantProfiles = profilesList.filter(p => p.tenant_id === tenant.id);
+                const manager = tenantProfiles.find(p => p.is_manager);
+                const leadsCount = allVisitorsList.filter(v => v.tenant_id === tenant.id).length;
+                const profileIds = tenantProfiles.map(p => p.id);
+                const connectionsCount = allHistoryList.filter(h => profileIds.includes(h.user_id)).length;
+
+                return {
+                    managerName: manager ? manager.name : 'Sem admin',
+                    managerPhone: manager ? manager.phone : '',
+                    leadsCount,
+                    connectionsCount
+                };
+            };
+
+            // Excluir empresa parceira e seus dados
+            const deleteTenant = async (tenantId) => {
+                if (!confirm("Tem certeza que deseja excluir esta empresa e TODOS os seus dados permanentemente? Esta ação também excluirá os perfis de gestor, operadores, histórico de conexões e visitantes/leads vinculados.")) return;
+                try {
+                    // 1. Obter ids dos perfis associados
+                    const { data: profiles, error: getPErr } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .eq('tenant_id', tenantId);
+                    
+                    if (getPErr) throw getPErr;
+                    
+                    const profileIds = (profiles || []).map(p => p.id);
+                    if (profileIds.length > 0) {
+                        // 2. Deletar histórico de conexões associado
+                        const { error: chErr } = await supabase
+                            .from('connection_history')
+                            .delete()
+                            .in('user_id', profileIds);
+                        if (chErr) throw chErr;
+                        
+                        // 3. Deletar perfis
+                        const { error: pErr } = await supabase
+                            .from('profiles')
+                            .delete()
+                            .in('id', profileIds);
+                        if (pErr) throw pErr;
+                    }
+                    
+                    // 4. Deletar visitantes/leads
+                    const { error: vErr } = await supabase
+                        .from('tenant_visitors')
+                        .delete()
+                        .eq('tenant_id', tenantId);
+                    if (vErr) throw vErr;
+                    
+                    // 5. Deletar a empresa
+                    const { error: tErr } = await supabase
+                        .from('tenants')
+                        .delete()
+                        .eq('id', tenantId);
+                    if (tErr) throw tErr;
+
+                    alert("Empresa excluída com sucesso!");
+                    if (selectedTenantId === tenantId) {
+                        setSelectedTenantId('');
+                        setTenantData(null);
+                        setIsSpyingTenant(false);
+                    }
+                    fetchManagerData();
+                } catch (err) {
+                    console.error("Erro ao excluir empresa:", err);
+                    alert("Erro ao excluir empresa: " + err.message);
                 }
-            }, [user]);
+            };
+
+            // Pausar / Ativar empresa
+            const toggleBlockTenant = async (tenant) => {
+                const newStatus = !tenant.is_blocked;
+                try {
+                    const { error } = await supabase
+                        .from('tenants')
+                        .update({ is_blocked: newStatus })
+                        .eq('id', tenant.id);
+                    
+                    if (error) throw error;
+                    alert(`Empresa "${tenant.name}" ${newStatus ? 'bloqueada/pausada' : 'desbloqueada/ativada'} com sucesso.`);
+                    fetchManagerData();
+                } catch (err) {
+                    console.error("Erro ao alterar status:", err);
+                    alert("Erro ao alterar status: " + err.message);
+                }
+            };
+
+            // Salvar alteração de plano
+            const saveSubscription = async (e) => {
+                if (e) e.preventDefault();
+                if (!editingSubscriptionTenant) return;
+                
+                try {
+                    const expiresVal = subAccessType === 'monthly' && subExpiresAt 
+                        ? new Date(subExpiresAt + "T23:59:59").toISOString() 
+                        : null;
+
+                    const { error } = await supabase
+                        .from('tenants')
+                        .update({
+                            access_type: subAccessType,
+                            expires_at: expiresVal
+                        })
+                        .eq('id', editingSubscriptionTenant.id);
+
+                    if (error) throw error;
+                    alert("Plano de acesso atualizado com sucesso!");
+                    setEditingSubscriptionTenant(null);
+                    fetchManagerData();
+                } catch (err) {
+                    console.error("Erro ao atualizar plano:", err);
+                    alert("Erro ao atualizar plano: " + err.message);
+                }
+            };
 
             const handleLogin = async (e) => {
                 if (e) e.preventDefault();
@@ -1044,384 +1167,124 @@
                         ) : (
                             /* TAB 2 / TENANT MANAGEMENT */
                             <div className="space-y-6">
-                                
-                                {/* Tenant Selector Header for Global Admin */}
-                                {user.tenant_id === null && (
-                                    <div className="bg-zinc-900 border border-white/5 p-6 rounded-[2rem] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                                        <div className="flex-1">
-                                            <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block mb-1">Selecionar Empresa Parceira</label>
-                                            <select 
-                                                value={selectedTenantId}
-                                                onChange={(e) => setSelectedTenantId(e.target.value)}
-                                                className="w-full sm:max-w-md h-12 bg-black/40 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                    /* LISTA DE EMPRESAS / ADMINS */
+                                    <div className="space-y-6">
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                            <div>
+                                                <h2 className="font-headline font-black text-lg uppercase text-white">Empresas & Administradores Parceiros</h2>
+                                                <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Gerencie as assinaturas, status de acesso e delete administradores</p>
+                                            </div>
+                                            <button 
+                                                onClick={() => setIsCreateTenantOpen(true)}
+                                                className="h-12 px-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs uppercase font-black tracking-widest transition-all"
                                             >
-                                                <option value="">-- Escolha uma Empresa --</option>
-                                                {tenantsList.map(t => (
-                                                    <option key={t.id} value={t.id}>{t.name} ({t.slug})</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <button 
-                                            onClick={() => setIsCreateTenantOpen(true)}
-                                            className="h-12 px-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs uppercase font-black tracking-widest transition-all self-end"
-                                        >
-                                            Criar Nova Empresa
-                                        </button>
-                                    </div>
-                                )}
-
-                                {tenantData ? (
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                                        
-                                        {/* Left: Branding and Rates Configuration */}
-                                        <div className="lg:col-span-2 space-y-6">
-                                            
-                                            {/* Branding Form */}
-                                            <div className="bg-zinc-900 border border-white/5 rounded-[2rem] p-6 shadow-xl space-y-4">
-                                                <h3 className="font-headline font-black text-sm uppercase text-white pb-3 border-b border-white/5">Identidade Visual da Página</h3>
-                                                
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    <div className="space-y-1">
-                                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Nome Comercial</label>
-                                                        <input 
-                                                            type="text"
-                                                            value={tenantData.name}
-                                                            onChange={(e) => setTenantData({ ...tenantData, name: e.target.value })}
-                                                            className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
-                                                            placeholder="Ex: GYN STORE"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Identificador Slug (URL)</label>
-                                                        <input 
-                                                            type="text"
-                                                            value={tenantData.slug}
-                                                            disabled={user.tenant_id !== null}
-                                                            onChange={(e) => setTenantData({ ...tenantData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
-                                                            className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50"
-                                                            placeholder="ex: gynstore"
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-1">
-                                                    <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Frase da Barra Superior</label>
-                                                    <input 
-                                                        type="text"
-                                                        value={tenantData.phrase || ''}
-                                                        onChange={(e) => setTenantData({ ...tenantData, phrase: e.target.value })}
-                                                        className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
-                                                        placeholder="Ex: Taxas Exclusivas da Maquininha Gyn Store"
-                                                    />
-                                                </div>
-
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    <div className="space-y-1">
-                                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Texto da Logo (Iniciais)</label>
-                                                        <input 
-                                                            type="text"
-                                                            maxLength="3"
-                                                            value={tenantData.logo_text || ''}
-                                                            onChange={(e) => setTenantData({ ...tenantData, logo_text: e.target.value.toUpperCase() })}
-                                                            className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
-                                                            placeholder="Ex: GYN"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Foto da Logo</label>
-                                                        <div className="flex items-center gap-3">
-                                                            <label className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl flex items-center justify-center cursor-pointer transition-all text-xs font-bold uppercase tracking-wider">
-                                                                Carregar Foto
-                                                                <input 
-                                                                    type="file"
-                                                                    accept="image/*"
-                                                                    className="hidden"
-                                                                    onChange={(e) => {
-                                                                        const file = e.target.files[0];
-                                                                        if (file) {
-                                                                            const reader = new FileReader();
-                                                                            reader.onload = (evt) => {
-                                                                                setTenantData({ ...tenantData, logo_image: evt.target.result });
-                                                                            };
-                                                                            reader.readAsDataURL(file);
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </label>
-                                                            {tenantData.logo_image && (
-                                                                <button 
-                                                                    onClick={() => setTenantData({ ...tenantData, logo_image: '' })}
-                                                                    className="h-11 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs uppercase font-bold"
-                                                                >
-                                                                    Remover
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Tipo de Estrutura / Multi-Lojistas */}
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-white/5">
-                                                    <div className="space-y-1">
-                                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase block mb-1">Estrutura da Empresa</label>
-                                                        <select 
-                                                            value={tenantData.structure_type || 'individual'}
-                                                            onChange={(e) => setTenantData({ ...tenantData, structure_type: e.target.value })}
-                                                            className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
-                                                        >
-                                                            <option value="individual">Lojista Individual / Único</option>
-                                                            <option value="group">Grupo Corporativo / Franquia (Multi-Lojistas)</option>
-                                                        </select>
-                                                    </div>
-                                                    <div className="space-y-1 flex flex-col justify-end">
-                                                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wide leading-tight">
-                                                            {tenantData.structure_type === 'group' 
-                                                                ? 'Permite cadastrar múltiplos lojistas (operadores) que acessam de forma individual.' 
-                                                                : 'Apenas uma conta principal de acesso para a calculadora.'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                {/* WhatsApp properties */}
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-white/5">
-                                                    <div className="space-y-1">
-                                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Número de Suporte WhatsApp</label>
-                                                        <input 
-                                                            type="text"
-                                                            value={tenantData.whatsapp_number || ''}
-                                                            onChange={(e) => setTenantData({ ...tenantData, whatsapp_number: e.target.value.replace(/\D/g, '') })}
-                                                            className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
-                                                            placeholder="Ex: 5562994049949"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Mensagem Inicial WhatsApp</label>
-                                                        <input 
-                                                            type="text"
-                                                            value={tenantData.whatsapp_message || ''}
-                                                            onChange={(e) => setTenantData({ ...tenantData, whatsapp_message: e.target.value })}
-                                                            className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
-                                                            placeholder="Ex: Olá, preciso de suporte..."
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Rates configuration (Card Flags) */}
-                                            <div className="bg-zinc-900 border border-white/5 rounded-[2rem] p-6 shadow-xl space-y-4">
-                                                <div className="flex justify-between items-center pb-3 border-b border-white/5">
-                                                    <h3 className="font-headline font-black text-sm uppercase text-white">Taxas Travadas (Bandeiras)</h3>
-                                                    <button 
-                                                        onClick={addColumn}
-                                                        className="h-8 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] uppercase font-black tracking-widest transition-all"
-                                                    >
-                                                        Adicionar Bandeira
-                                                    </button>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    {tenantData.cards_data && tenantData.cards_data.map((card, cIdx) => (
-                                                        <div key={cIdx} className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between space-y-4">
-                                                            <div className="flex justify-between items-center">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: card.color || '#666' }} />
-                                                                    <span className="font-headline font-black text-xs text-white uppercase">{card.name}</span>
-                                                                </div>
-                                                                <span className="text-[8px] font-black text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full uppercase">Max {card.maxParc}x</span>
-                                                            </div>
-
-                                                            <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-zinc-400">
-                                                                <div className="bg-white/5 p-2 rounded-lg flex justify-between">
-                                                                    <span>PIX:</span>
-                                                                    <span className="font-black text-emerald-400">{card.pixRate || 0}%</span>
-                                                                </div>
-                                                                <div className="bg-white/5 p-2 rounded-lg flex justify-between">
-                                                                    <span>DEB:</span>
-                                                                    <span className="font-black text-zinc-300">{card.debitRate || 0}%</span>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex gap-2">
-                                                                <button 
-                                                                    onClick={() => openSettings(cIdx)}
-                                                                    className="flex-1 h-8 bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-400 border border-white/10 rounded-lg text-[9px] uppercase font-black tracking-widest transition-all"
-                                                                >
-                                                                    Editar Taxas
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        const updated = [...tenantData.cards_data];
-                                                                        updated.splice(cIdx, 1);
-                                                                        setTenantData({ ...tenantData, cards_data: updated });
-                                                                    }}
-                                                                    className="h-8 w-8 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg flex items-center justify-center transition-all"
-                                                                    title="Remover Bandeira"
-                                                                >
-                                                                    ✕
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-
-                                                <div className="pt-4 border-t border-white/5 flex justify-end">
-                                                    <button 
-                                                        onClick={handleSaveTenantChanges}
-                                                        disabled={isSavingTenant}
-                                                        className="w-full sm:w-auto h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs uppercase font-black tracking-widest transition-all shadow-lg font-bold flex items-center justify-center gap-2"
-                                                    >
-                                                        {isSavingTenant ? "Gravando no Banco..." : "Salvar Alterações da Empresa"}
-                                                    </button>
-                                                </div>
-                                            </div>
+                                                Criar Nova Empresa
+                                            </button>
                                         </div>
 
-                                        {/* Right: visitor logs (leads), operators management, and access history */}
-                                        <div className="space-y-6 flex flex-col w-full">
-                                            
-                                            {/* Card 1: Leads de Visitantes */}
-                                            <div className="bg-zinc-900 border border-white/5 rounded-[2rem] p-6 shadow-xl flex flex-col max-h-[350px]">
-                                                <div className="flex justify-between items-center pb-3 border-b border-white/5 mb-4">
-                                                    <div>
-                                                        <h3 className="font-headline font-black text-sm uppercase text-white">Leads de Visitantes</h3>
-                                                        <span className="text-[9px] text-zinc-500 uppercase font-black tracking-wider">{tenantVisitors.length} visitantes</span>
-                                                    </div>
-                                                    <button 
-                                                        onClick={handleExportLeads}
-                                                        className="h-8 px-3 bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-400 border border-white/10 rounded-lg text-[9px] uppercase font-black tracking-widest transition-all"
-                                                    >
-                                                        Exportar
-                                                    </button>
-                                                </div>
-
-                                                <div className="space-y-3 overflow-y-auto flex-1 pr-1">
-                                                    {tenantVisitors.map(v => {
-                                                        const date = new Date(v.visited_at).toLocaleString('pt-BR');
-                                                        return (
-                                                            <div key={v.id} className="bg-black/30 border border-white/5 p-3 rounded-xl space-y-1">
-                                                                <div className="flex justify-between items-center">
-                                                                    <span className="font-black text-xs text-white uppercase tracking-tight">{v.name}</span>
-                                                                    <span className="text-[7.5px] font-mono text-zinc-500">{date}</span>
-                                                                </div>
-                                                                <a 
-                                                                    href={`https://wa.me/${v.phone}`}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-[10px] font-mono text-emerald-400 hover:underline flex items-center gap-1"
-                                                                >
-                                                                    <WhatsAppIcon className="h-3 w-3 inline fill-current" />
-                                                                    {v.phone}
-                                                                </a>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    {tenantVisitors.length === 0 && (
-                                                        <div className="text-center py-12 text-xs font-black text-zinc-500 uppercase tracking-widest">Nenhum visitante registrou acesso.</div>
-                                                    )}
-                                                </div>
+                                        <div className="bg-zinc-900 border border-white/5 rounded-[2.5rem] overflow-hidden shadow-xl">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead>
+                                                        <tr className="border-b border-white/5 bg-black/25">
+                                                            <th className="p-5 text-[9px] font-black tracking-widest text-zinc-500 uppercase">Empresa / Slug</th>
+                                                            <th className="p-5 text-[9px] font-black tracking-widest text-zinc-500 uppercase">Gestor (Admin)</th>
+                                                            <th className="p-5 text-[9px] font-black tracking-widest text-zinc-500 uppercase">Plano / Expiração</th>
+                                                            <th className="p-5 text-[9px] font-black tracking-widest text-zinc-500 uppercase text-center">Clientes (Leads)</th>
+                                                            <th className="p-5 text-[9px] font-black tracking-widest text-zinc-500 uppercase text-center">Conexões</th>
+                                                            <th className="p-5 text-[9px] font-black tracking-widest text-zinc-500 uppercase text-center">Status</th>
+                                                            <th className="p-5 text-[9px] font-black tracking-widest text-zinc-500 uppercase text-right">Ações</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-white/5">
+                                                        {tenantsList.length === 0 ? (
+                                                            <tr>
+                                                                <td colSpan="7" className="p-10 text-center text-xs text-zinc-500 font-bold uppercase">Nenhuma empresa parceira cadastrada.</td>
+                                                            </tr>
+                                                        ) : (
+                                                            tenantsList.map(t => {
+                                                                const stats = getTenantStats(t);
+                                                                const isExpired = t.access_type === 'monthly' && t.expires_at && new Date(t.expires_at) < new Date();
+                                                                const isBlocked = t.is_blocked || isExpired;
+                                                                
+                                                                return (
+                                                                    <tr key={t.id} className="hover:bg-white/[0.02] transition-colors">
+                                                                        <td className="p-5">
+                                                                            <div className="font-bold text-xs text-white">{t.name}</div>
+                                                                            <div className="text-[10px] text-zinc-500 font-semibold">/{t.slug}</div>
+                                                                        </td>
+                                                                        <td className="p-5">
+                                                                            <div className="font-bold text-xs text-zinc-300">{stats.managerName}</div>
+                                                                            {stats.managerPhone && (
+                                                                                <div className="text-[10px] text-zinc-500 font-mono">{stats.managerPhone}</div>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="p-5">
+                                                                            <div className="font-bold text-xs text-zinc-300">
+                                                                                {t.access_type === 'lifetime' ? 'Vitalício' : 'Mensal'}
+                                                                            </div>
+                                                                            {t.access_type === 'monthly' && (
+                                                                                <div className={`text-[10px] font-bold ${isExpired ? 'text-red-400' : 'text-zinc-500'}`}>
+                                                                                    {t.expires_at ? `Expira: ${new Date(t.expires_at).toLocaleDateString('pt-BR')}` : 'Sem data'}
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="p-5 text-center">
+                                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-800 text-zinc-300">
+                                                                                {stats.leadsCount}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="p-5 text-center">
+                                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-zinc-800 text-zinc-300">
+                                                                                {stats.connectionsCount}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="p-5 text-center">
+                                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${isBlocked ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                                                                {isBlocked ? (isExpired ? 'Expirado' : 'Bloqueado') : 'Ativo'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="p-5 text-right space-x-1">
+                                                                            <button 
+                                                                                onClick={() => {
+                                                                                    window.open(`admin.html?id=${t.slug}`, '_blank');
+                                                                                }}
+                                                                                className="px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/25 text-blue-400 rounded-lg text-[10px] uppercase font-black tracking-wider transition-all"
+                                                                            >
+                                                                                Espiar
+                                                                            </button>
+                                                                            <button 
+                                                                                onClick={() => {
+                                                                                    setEditingSubscriptionTenant(t);
+                                                                                    setSubAccessType(t.access_type || 'lifetime');
+                                                                                    setSubExpiresAt(t.expires_at ? t.expires_at.split('T')[0] : '');
+                                                                                }}
+                                                                                className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/25 text-amber-400 rounded-lg text-[10px] uppercase font-black tracking-wider transition-all"
+                                                                            >
+                                                                                Plano
+                                                                            </button>
+                                                                            <button 
+                                                                                onClick={() => toggleBlockTenant(t)}
+                                                                                className={`px-2.5 py-1.5 rounded-lg text-[10px] uppercase font-black tracking-wider transition-all ${t.is_blocked ? 'bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400' : 'bg-red-500/10 hover:bg-red-500/25 text-red-400'}`}
+                                                                            >
+                                                                                {t.is_blocked ? 'Ativar' : 'Pausar'}
+                                                                            </button>
+                                                                            <button 
+                                                                                onClick={() => deleteTenant(t.id)}
+                                                                                className="px-2.5 py-1.5 bg-red-600/20 hover:bg-red-600 text-red-100 rounded-lg text-[10px] uppercase font-black tracking-wider transition-all"
+                                                                            >
+                                                                                Excluir
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </tbody>
+                                                </table>
                                             </div>
-
-                                            {/* Card 2: Lojistas / Operadores da Empresa */}
-                                            <div className="bg-zinc-900 border border-white/5 rounded-[2rem] p-6 shadow-xl flex flex-col max-h-[350px]">
-                                                <div className="flex justify-between items-center pb-3 border-b border-white/5 mb-4">
-                                                    <div>
-                                                        <h3 className="font-headline font-black text-sm uppercase text-white">Lojistas / Operadores</h3>
-                                                        <span className="text-[9px] text-zinc-500 uppercase font-black tracking-wider">
-                                                            {(() => {
-                                                                const activeOperators = user.tenant_id !== null ? profilesList : tenantOperatorsList;
-                                                                return activeOperators.length;
-                                                            })()} cadastrados
-                                                        </span>
-                                                    </div>
-                                                    <button 
-                                                        onClick={() => setIsCreateOperatorOpen(true)}
-                                                        className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[9px] uppercase font-black tracking-widest transition-all font-bold"
-                                                    >
-                                                        + Novo
-                                                    </button>
-                                                </div>
-
-                                                <div className="space-y-3 overflow-y-auto flex-1 pr-1">
-                                                    {(() => {
-                                                        const activeOperators = user.tenant_id !== null ? profilesList : tenantOperatorsList;
-                                                        return activeOperators.map(op => (
-                                                            <div key={op.id} className="bg-black/30 border border-white/5 p-3 rounded-xl flex justify-between items-center">
-                                                                <div className="space-y-0.5">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="font-black text-xs text-white uppercase tracking-tight">{op.name}</span>
-                                                                        {op.is_manager ? (
-                                                                            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[7px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded">Gestor</span>
-                                                                        ) : (
-                                                                            <span className="bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 text-[7px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded">Operador</span>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="text-[9px] font-mono text-zinc-400">Senha: {op.phone}</div>
-                                                                </div>
-                                                                <button 
-                                                                    onClick={() => handleDeleteOperator(op.id)}
-                                                                    className="h-7 w-7 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg flex items-center justify-center transition-all text-xs"
-                                                                    title="Excluir Lojista"
-                                                                >
-                                                                    ✕
-                                                                </button>
-                                                            </div>
-                                                        ));
-                                                    })()}
-                                                    {(() => {
-                                                        const activeOperators = user.tenant_id !== null ? profilesList : tenantOperatorsList;
-                                                        if (activeOperators.length === 0) {
-                                                            return (
-                                                                <div className="text-center py-12 text-xs font-black text-zinc-500 uppercase tracking-widest">Nenhum lojista cadastrado.</div>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })()}
-                                                </div>
-                                            </div>
-
-                                            {/* Card 3: Histórico de Acesso dos Lojistas */}
-                                            <div className="bg-zinc-900 border border-white/5 rounded-[2rem] p-6 shadow-xl flex flex-col max-h-[350px]">
-                                                <div className="pb-3 border-b border-white/5 mb-4">
-                                                    <h3 className="font-headline font-black text-sm uppercase text-white">Conexões de Lojistas</h3>
-                                                </div>
-                                                <div className="space-y-3 overflow-y-auto flex-1 pr-1">
-                                                    {(() => {
-                                                        const activeHistory = user.tenant_id !== null ? historyList : tenantOperatorsHistoryList;
-                                                        return activeHistory.map(log => {
-                                                            const name = log.profiles?.name || 'Desconhecido';
-                                                            const phone = log.profiles?.phone || '';
-                                                            const date = new Date(log.logged_in_at).toLocaleString('pt-BR');
-                                                            return (
-                                                                <div key={log.id} className="bg-black/30 border border-white/5 p-3 rounded-xl flex flex-col gap-1">
-                                                                    <div className="flex justify-between items-center">
-                                                                        <span className="font-bold text-xs text-white uppercase">{name}</span>
-                                                                        <span className="text-[7.5px] font-mono text-zinc-500">{date}</span>
-                                                                    </div>
-                                                                    <span className="text-[9px] font-mono text-zinc-400">Acessou a calculadora</span>
-                                                                </div>
-                                                            );
-                                                        });
-                                                    })()}
-                                                    {(() => {
-                                                        const activeHistory = user.tenant_id !== null ? historyList : tenantOperatorsHistoryList;
-                                                        if (activeHistory.length === 0) {
-                                                            return (
-                                                                <div className="text-center py-12 text-xs font-black text-zinc-500 uppercase tracking-widest">Nenhum acesso registrado.</div>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })()}
-                                                </div>
-                                            </div>
-
                                         </div>
-
                                     </div>
-                                ) : (
-                                    <div className="bg-zinc-900 border border-white/5 p-12 rounded-[2rem] text-center text-zinc-500 text-xs font-black uppercase tracking-widest">
-                                        Selecione uma empresa acima para gerenciar.
-                                    </div>
-                                )}
                             </div>
                         )}
 
@@ -1578,6 +1441,62 @@
                                             )}
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Modal de Plano de Acesso / Assinatura */}
+                        {editingSubscriptionTenant && (
+                            <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
+                                <div className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-[2rem] p-6 shadow-2xl space-y-6">
+                                    <div className="flex justify-between items-center pb-3 border-b border-white/5">
+                                        <h4 className="font-headline font-black text-sm uppercase text-white">Editar Plano de Acesso</h4>
+                                        <button 
+                                            onClick={() => setEditingSubscriptionTenant(null)}
+                                            className="text-zinc-500 hover:text-white text-xs font-bold"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+
+                                    <form onSubmit={saveSubscription} className="space-y-4">
+                                        <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                            <span className="text-[10px] text-zinc-500 font-bold uppercase block">Empresa selecionada</span>
+                                            <span className="text-sm font-black text-white">{editingSubscriptionTenant.name}</span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Tipo de Acesso</label>
+                                            <select 
+                                                value={subAccessType}
+                                                onChange={(e) => setSubAccessType(e.target.value)}
+                                                className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                            >
+                                                <option value="lifetime">Acesso Vitalício</option>
+                                                <option value="monthly">Mensalidade (Vencimento)</option>
+                                            </select>
+                                        </div>
+
+                                        {subAccessType === 'monthly' && (
+                                            <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+                                                <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Data de Expiração</label>
+                                                <input 
+                                                    type="date"
+                                                    required
+                                                    value={subExpiresAt}
+                                                    onChange={(e) => setSubExpiresAt(e.target.value)}
+                                                    className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                                />
+                                            </div>
+                                        )}
+
+                                        <button 
+                                            type="submit"
+                                            className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs uppercase font-black tracking-widest transition-all font-bold"
+                                        >
+                                            Salvar Plano
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                         )}

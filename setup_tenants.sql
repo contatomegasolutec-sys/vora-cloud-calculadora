@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS public.tenants (
     whatsapp_number TEXT DEFAULT '5562994049949',
     whatsapp_message TEXT DEFAULT 'olá preciso de suporte para a calculadora',
     structure_type TEXT DEFAULT 'individual', -- 'individual' ou 'group'
+    is_blocked BOOLEAN DEFAULT false,
+    access_type TEXT DEFAULT 'lifetime', -- 'lifetime' ou 'monthly'
+    expires_at TIMESTAMPTZ DEFAULT null,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -42,6 +45,40 @@ BEGIN
     ) THEN
         ALTER TABLE public.tenants 
         ADD COLUMN structure_type TEXT DEFAULT 'individual';
+    END IF;
+END $$;
+
+-- Garantir colunas de assinatura/bloqueio na tabela tenants
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+          AND table_name = 'tenants' 
+          AND column_name = 'is_blocked'
+    ) THEN
+        ALTER TABLE public.tenants ADD COLUMN is_blocked BOOLEAN DEFAULT false;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+          AND table_name = 'tenants' 
+          AND column_name = 'access_type'
+    ) THEN
+        ALTER TABLE public.tenants ADD COLUMN access_type TEXT DEFAULT 'lifetime';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+          AND table_name = 'tenants' 
+          AND column_name = 'expires_at'
+    ) THEN
+        ALTER TABLE public.tenants ADD COLUMN expires_at TIMESTAMPTZ DEFAULT null;
     END IF;
 END $$;
 

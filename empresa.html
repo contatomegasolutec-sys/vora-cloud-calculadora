@@ -561,6 +561,11 @@
                             return;
                         }
 
+                        if (tenantData.is_blocked || (tenantData.access_type === 'monthly' && tenantData.expires_at && new Date(tenantData.expires_at) < new Date())) {
+                            setTenantError("Acesso suspenso: esta conta de empresa está bloqueada ou com plano expirado. Entre em contato com a administração.");
+                            return;
+                        }
+
                         setTenant(tenantData);
                         setBrandName(tenantData.name);
                         setBrandLogoText(tenantData.logo_text || 'T');
@@ -1238,6 +1243,28 @@
                 if (rate >= 100) return 0;
                 return (val * 100) / (100 - rate);
             };
+
+            // Loading state
+            if (tenantLoading) {
+                return (
+                    <div className="flex-1 flex flex-col justify-center items-center bg-zinc-950 p-4 min-h-screen">
+                        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-emerald-500 border-r-2 border-zinc-700" />
+                        <span className="text-xs text-zinc-500 font-bold uppercase tracking-widest pt-4">Carregando...</span>
+                    </div>
+                );
+            }
+
+            // Error state / Block state
+            if (tenantError) {
+                return (
+                    <div className="flex-1 flex flex-col justify-center items-center bg-zinc-950 p-4 text-center min-h-screen">
+                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-8 rounded-[2.5rem] max-w-md space-y-4">
+                            <span className="font-headline font-black uppercase text-base block">⚠️ Acesso Indisponível</span>
+                            <p className="text-xs text-zinc-400 leading-relaxed">{tenantError}</p>
+                        </div>
+                    </div>
+                );
+            }
 
             // Se o usuário não estiver logado, renderizar tela de login
             if (!user) {

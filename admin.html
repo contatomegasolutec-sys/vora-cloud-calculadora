@@ -302,6 +302,8 @@
                         if (error) throw error;
                         if (!data) {
                             setTenantError(`Empresa "${activeSlug}" não encontrada no banco.`);
+                        } else if (data.is_blocked || (data.access_type === 'monthly' && data.expires_at && new Date(data.expires_at) < new Date())) {
+                            setTenantError(`Acesso suspenso: a conta da empresa "${data.name}" está temporariamente suspensa por expiração de plano ou bloqueio administrativo.`);
                         } else {
                             setActiveTenant(data);
                             setTenantData(data);
