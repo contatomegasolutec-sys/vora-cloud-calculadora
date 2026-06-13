@@ -106,6 +106,9 @@ CREATE POLICY "Acesso público de inserção para tenants" ON public.tenants
     FOR INSERT WITH CHECK (true);
 CREATE POLICY "Acesso público de atualização para tenants" ON public.tenants
     FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Acesso público de deleção para tenants" ON public.tenants;
+CREATE POLICY "Acesso público de deleção para tenants" ON public.tenants
+    FOR DELETE USING (true);
 
 -- 6. Criar Políticas para a tabela public.tenant_visitors
 DROP POLICY IF EXISTS "Acesso público para inserir visitantes" ON public.tenant_visitors;
@@ -115,10 +118,18 @@ CREATE POLICY "Acesso público para inserir visitantes" ON public.tenant_visitor
 DROP POLICY IF EXISTS "Acesso para gestores verem seus visitantes" ON public.tenant_visitors;
 CREATE POLICY "Acesso público de leitura para visitantes" ON public.tenant_visitors
     FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Acesso público de deleção para tenant_visitors" ON public.tenant_visitors;
+CREATE POLICY "Acesso público de deleção para tenant_visitors" ON public.tenant_visitors
+    FOR DELETE USING (true);
 
 -- Política de Deleção de Perfis (para remover lojistas no painel)
 DROP POLICY IF EXISTS "Acesso público de deleção para profiles" ON public.profiles;
 CREATE POLICY "Acesso público de deleção para profiles" ON public.profiles
+    FOR DELETE USING (true);
+
+-- Política de Deleção para Connection History (para limpar logs ao deletar empresa/perfis)
+DROP POLICY IF EXISTS "Acesso público de deleção para connection_history" ON public.connection_history;
+CREATE POLICY "Acesso público de deleção para connection_history" ON public.connection_history
     FOR DELETE USING (true);
 
 -- 7. Inserir Tenant padrão da GYN STORE (Iniciando como estrutura de grupo)
