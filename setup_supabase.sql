@@ -45,6 +45,9 @@ CREATE POLICY "Acesso público de atualização para user_settings" ON public.us
 CREATE POLICY "Acesso público de leitura para connection_history" ON public.connection_history FOR SELECT USING (true);
 CREATE POLICY "Acesso público de inserção para connection_history" ON public.connection_history FOR INSERT WITH CHECK (true);
 CREATE POLICY "Acesso público de atualização para connection_history" ON public.connection_history FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Acesso público de deleção para connection_history" ON public.connection_history;
+CREATE POLICY "Acesso público de deleção para connection_history" ON public.connection_history FOR DELETE USING (true);
+
 
 -- Inserir perfil inicial do Gestor (substitua pelo seu telefone e nome no painel depois se desejar)
 INSERT INTO public.profiles (phone, name, is_manager)
