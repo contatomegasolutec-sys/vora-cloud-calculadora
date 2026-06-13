@@ -172,7 +172,14 @@
 
             const [user, setUser] = useState(() => {
                 const saved = sessionStorage.getItem('vora_admin_user');
-                return saved ? JSON.parse(saved) : null;
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && parsed.tenant_id === undefined) {
+                        parsed.tenant_id = null;
+                    }
+                    return parsed;
+                }
+                return null;
             });
 
             // Login Form inputs
@@ -445,6 +452,10 @@
                     await supabase
                         .from('connection_history')
                         .insert({ user_id: profile.id });
+
+                    if (profile.tenant_id === undefined) {
+                        profile.tenant_id = null;
+                    }
 
                     sessionStorage.setItem('vora_admin_user', JSON.stringify(profile));
                     setUser(profile);
@@ -1689,7 +1700,6 @@
 
                         <DevFooter />
                     </div>
-                    <WhatsAppButton />
                 </div>
             );
         }
