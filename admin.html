@@ -573,9 +573,14 @@
                 setEditingIdx(idx);
                 setModalData({ ...card });
 
+                const pixVal = card.pixRate || 0;
+                const pixCoef = 1 - pixVal / 100;
+                const debVal = card.debitRate || 0;
+                const debCoef = 1 - debVal / 100;
+
                 const ratesList = [
-                    { installment: 'PIX', percentStr: (card.pixRate || 0).toString().replace('.', ','), coefStr: '1' },
-                    { installment: 'DÉBITO', percentStr: (card.debitRate || 0).toString().replace('.', ','), coefStr: '1' }
+                    { installment: 'PIX', percentStr: pixVal.toString().replace('.', ','), coefStr: parseFloat(pixCoef.toFixed(6)).toString().replace('.', ',') },
+                    { installment: 'DÉBITO', percentStr: debVal.toString().replace('.', ','), coefStr: parseFloat(debCoef.toFixed(6)).toString().replace('.', ',') }
                 ];
 
                 for (let i = 0; i < 24; i++) {
@@ -1292,27 +1297,49 @@
 
                                     <div className="border-t border-white/5 pt-4">
                                         <div className="flex justify-between items-center pb-2">
-                                            <span className="text-[10px] text-zinc-400 uppercase font-black tracking-widest">Tabela de Taxas (%)</span>
+                                            <span className="text-[10px] text-zinc-400 uppercase font-black tracking-widest">Tabela de Taxas e Coeficientes</span>
                                             <button onClick={restoreCurrentDefault} className="text-[9px] text-zinc-500 hover:text-emerald-400 font-bold uppercase tracking-widest transition-colors">
                                                 Restaurar padrão
                                             </button>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
+                                        <div className="flex px-3 pb-1 text-[9px] font-black tracking-widest text-zinc-500 uppercase">
+                                            <span className="w-12">Parc.</span>
+                                            <span className="flex-1 text-center">Taxa (%)</span>
+                                            <span className="flex-1 text-center font-bold">Coeficiente</span>
+                                        </div>
+
+                                        <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
                                             {modalRates.map((item, idx) => {
                                                 const isString = typeof item.installment === 'string';
                                                 if (!isString && item.installment > modalData.maxParc) return null;
                                                 return (
-                                                    <div key={idx} className="bg-black/30 border border-white/5 rounded-xl p-3 flex flex-col gap-1">
-                                                        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">{item.installment}</span>
-                                                        <div className="relative">
+                                                    <div key={idx} className="flex items-center gap-3 bg-black/30 border border-white/5 rounded-xl p-2 px-3">
+                                                        <span className="text-[10px] font-black text-zinc-400 w-12">
+                                                            {item.installment === 'DÉBITO' ? 'Débito' : (isString ? item.installment : `${item.installment}x`)}
+                                                        </span>
+                                                        
+                                                        {/* Percentage Input */}
+                                                        <div className="flex-1 flex items-center gap-1 bg-black/20 rounded-lg px-2 border border-white/5 focus-within:border-emerald-500 transition-colors relative">
                                                             <input 
                                                                 type="text"
                                                                 value={item.percentStr}
                                                                 onChange={(e) => handlePercentChange(idx, e.target.value)}
-                                                                className="w-full h-9 bg-black/20 border border-white/5 rounded-lg px-2 text-xs font-mono text-white text-right pr-6 focus:outline-none focus:border-emerald-500"
+                                                                className="w-full h-8 text-center text-xs font-mono font-bold bg-transparent text-white focus:outline-none"
+                                                                placeholder="0,00"
                                                             />
-                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-zinc-500 font-mono">%</span>
+                                                            <span className="text-[10px] font-bold text-zinc-500">%</span>
+                                                        </div>
+
+                                                        {/* Coefficient Input */}
+                                                        <div className="flex-1 flex items-center gap-1 bg-black/20 rounded-lg px-2 border border-white/5 focus-within:border-emerald-500 transition-colors relative">
+                                                            <input 
+                                                                type="text"
+                                                                value={item.coefStr}
+                                                                onChange={(e) => handleCoefChange(idx, e.target.value)}
+                                                                className="w-full h-8 text-center text-xs font-mono font-bold bg-transparent text-white focus:outline-none"
+                                                                placeholder="1,0000"
+                                                            />
                                                         </div>
                                                     </div>
                                                 );
