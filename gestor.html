@@ -435,7 +435,7 @@
                         return;
                     }
 
-                    if (profile.tenant_id !== null) {
+                    if (profile.tenant_id !== null && profile.tenant_id !== undefined) {
                         setAuthError("Acesso restrito. Utilize o link administrativo específico da sua empresa parceira.");
                         setAuthLoading(false);
                         return;
