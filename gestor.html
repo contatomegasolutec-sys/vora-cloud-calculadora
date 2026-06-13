@@ -204,6 +204,7 @@
             // Operator creation state
             const [newOperatorName, setNewOperatorName] = useState('');
             const [newOperatorPhone, setNewOperatorPhone] = useState('');
+            const [newOperatorIsManager, setNewOperatorIsManager] = useState(false);
             const [isCreateOperatorOpen, setIsCreateOperatorOpen] = useState(false);
 
             // New Tenant Modal Form State
@@ -289,7 +290,6 @@
                             .from('profiles')
                             .select('*')
                             .eq('tenant_id', activeCompanyId)
-                            .eq('is_manager', false)
                             .order('created_at', { ascending: false });
 
                         if (tpErr) throw tpErr;
@@ -552,16 +552,17 @@
                         .insert({
                             name: newOperatorName.trim(),
                             phone: phoneVal,
-                            is_manager: false,
+                            is_manager: newOperatorIsManager,
                             tenant_id: activeCompanyId
                         });
 
                     if (error) throw error;
 
-                    alert(`Lojista/Operador "${newOperatorName}" cadastrado com sucesso!`);
+                    alert(`Perfil "${newOperatorName}" cadastrado com sucesso!`);
                     setIsCreateOperatorOpen(false);
                     setNewOperatorName('');
                     setNewOperatorPhone('');
+                    setNewOperatorIsManager(false);
                     fetchManagerData();
                 } catch (err) {
                     console.error("Erro ao criar operador:", err);
@@ -1320,7 +1321,14 @@
                                                         return activeOperators.map(op => (
                                                             <div key={op.id} className="bg-black/30 border border-white/5 p-3 rounded-xl flex justify-between items-center">
                                                                 <div className="space-y-0.5">
-                                                                    <div className="font-black text-xs text-white uppercase tracking-tight">{op.name}</div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-black text-xs text-white uppercase tracking-tight">{op.name}</span>
+                                                                        {op.is_manager ? (
+                                                                            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[7px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded">Gestor</span>
+                                                                        ) : (
+                                                                            <span className="bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 text-[7px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded">Operador</span>
+                                                                        )}
+                                                                    </div>
                                                                     <div className="text-[9px] font-mono text-zinc-400">Senha: {op.phone}</div>
                                                                 </div>
                                                                 <button 
@@ -1539,11 +1547,22 @@
                                                 placeholder="Ex: 62999999999 ou senha123"
                                             />
                                         </div>
+                                        <div className="space-y-1">
+                                            <label className="text-zinc-500 text-[9px] font-black tracking-widest uppercase">Tipo de Perfil</label>
+                                            <select 
+                                                value={newOperatorIsManager ? 'manager' : 'operator'}
+                                                onChange={(e) => setNewOperatorIsManager(e.target.value === 'manager')}
+                                                className="w-full h-11 bg-black/30 border border-white/10 rounded-xl px-4 text-xs font-bold text-white focus:outline-none focus:border-emerald-500"
+                                            >
+                                                <option value="operator">Operador Comum (Acesso à calculadora do cliente)</option>
+                                                <option value="manager">Gestor de Grupo (Acesso ao painel corporativo / GYN STORE)</option>
+                                            </select>
+                                        </div>
                                         <button 
                                             type="submit"
                                             className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs uppercase font-black tracking-widest transition-all font-bold"
                                         >
-                                            Cadastrar Lojista
+                                            Cadastrar Perfil
                                         </button>
                                     </form>
                                 </div>
